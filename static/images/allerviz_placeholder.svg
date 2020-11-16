@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 25.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1"
+	 id="svg8" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:svg="http://www.w3.org/2000/svg"
+	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 1290.4 645.7"
+	 style="enable-background:new 0 0 1290.4 645.7;" xml:space="preserve">
+<style type="text/css">
+	.st0{display:none;}
+	.st1{display:inline;fill:none;stroke:#000000;stroke-width:0.75;stroke-miterlimit:11.3386;}
+	.st2{fill:#4D4D4D;}
+	.st3{display:none;fill-rule:evenodd;clip-rule:evenodd;fill:#0000FF;}
+	.st4{opacity:0.5;fill-rule:evenodd;clip-rule:evenodd;fill:#00FF00;enable-background:new    ;}
+	.st5{opacity:0.5;fill-rule:evenodd;clip-rule:evenodd;fill:#0000FF;enable-background:new    ;}
+</style>
+<sodipodi:namedview  bordercolor="#666666" borderopacity="1.0" id="base" inkscape:current-layer="svg8" inkscape:cx="370.70763" inkscape:cy="399.0263" inkscape:document-rotation="0" inkscape:document-units="mm" inkscape:guide-bbox="true" inkscape:pageopacity="0.0" inkscape:pageshadow="2" inkscape:window-height="1137" inkscape:window-maximized="1" inkscape:window-width="1920" inkscape:window-x="-8" inkscape:window-y="-8" inkscape:zoom="2.8284271" pagecolor="#ffffff" showgrid="false" showguides="true">
+	<sodipodi:guide  id="guide233" orientation="0,-1" position="54.428572,167.35416"></sodipodi:guide>
+	<sodipodi:guide  id="guide235" orientation="1,0" position="80.558487,200.25377"></sodipodi:guide>
+	<sodipodi:guide  id="guide237" orientation="1,0" position="87.183318,197.02531"></sodipodi:guide>
+	<sodipodi:guide  id="guide239" orientation="1,0" position="103.13861,197.0253"></sodipodi:guide>
+	<sodipodi:guide  id="guide335" orientation="1,0" position="110.058,174.53569"></sodipodi:guide>
+	<sodipodi:guide  id="guide337" orientation="1,0" position="116.6009,174.53569"></sodipodi:guide>
+	<sodipodi:guide  id="guide339" orientation="1,0" position="66.187332,174.53569"></sodipodi:guide>
+	<sodipodi:guide  id="guide341" orientation="1,0" position="123.85888,204.20684"></sodipodi:guide>
+	<sodipodi:guide  id="guide343" orientation="1,0" position="72.909712,174.53569"></sodipodi:guide>
+</sodipodi:namedview>
+<rect id="rect349" x="97.8" y="199.1" class="st0" width="342.6" height="190.9"/>
+<g id="layer1" inkscape:label="Reference Shapes" class="st0">
+	<path id="path312-3" class="st1" d="M262.9,178.9L223.8,263"/>
+	<path id="path312" class="st1" d="M307.4,347.1l39.1,84.1"/>
+	<path id="rect245" inkscape:label="Triangle_1" sodipodi:nodetypes="cccc" class="st2" d="M242.3,263l-39.1,84.1h78.2L242.3,263z"
+		/>
+	<path id="rect245-0" inkscape:label="Triangle_2" sodipodi:nodetypes="cccc" class="st2" d="M307.4,347.1l39.1-84.1h-78.2
+		L307.4,347.1z"/>
+	<rect id="rect231" x="254.1" y="377.4" class="st2" width="19.1" height="20.4"/>
+	<rect id="rect263-9" x="307.4" y="335.9" class="st2" width="18.5" height="11.2"/>
+	<rect id="rect263-9-5" x="223.8" y="263" class="st2" width="18.5" height="11.2"/>
+</g>
+<path id="path310" inkscape:label="Main" sodipodi:nodetypes="ccccccccccccccccccccccccccccc" class="st3" d="M207.2,242.7h16.5
+	l9.5,0l9.6,0l16,0l29,0V263h-19.5l39.1,84.1h18.5l39.1-84.1h-18.5v-20.4h53.2l-60.5,124.8h-22.2h-9.5h-21.1h-24v-20.4h19.1
+	L242.3,263h-18.5L183,347.1h19.1v20.4h-28.5h-25L207.2,242.7z"/>
+<path id="path345" inkscape:label="A" sodipodi:nodetypes="ccccccccccccccccccccc" class="st4" d="M434.8,3.9l49-0.1l81.7-0.1
+	l148.3-0.2v104.6H614l200.2,430.3h94.9l200.2-430.3h-94.9V4h272.1L976.7,642.7H863h-48.8H706.3H583.8V538.5h97.6L481.2,108.2
+	L434.8,3.9z"/>
+<path id="path347" inkscape:label="V" sodipodi:nodetypes="ccccccccccccccccccccccc" class="st5" d="M301.7,4h84.6l48.4-0.1l49-0.1
+	l81.7-0.1l148.3-0.2v104.6H614l200.2,430.3L863,642.7h-48.8H706.3H583.8V538.5h97.6L481.2,108.2h-94.9L177.9,538.5h97.5v104.2H129.6
+	H1.6L301.7,4z"/>
+</svg>

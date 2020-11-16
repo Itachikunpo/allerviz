@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% set active_page = 'new_item' %}
+{% from "_error_messages.html" import field_error_messages, error_messages %}
+{% block title %}Add new item - {% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-7 offset-lg-2 my-5">
+    <h1>Add new item</h1><hr>
+    <form method="POST" action="{{ url_for('new_item') }}" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      {{ error_messages(form.errors) }}
+      <div class="form-group">
+        {{ form.restaurant_name.label }}
+        {{ form.restaurant_name(class="form-control") }}
+        {{ field_error_messages(form.restaurant_name) }}
+      </div>
+      <div class="form-group">
+        {{ form.allergy_score.label }}
+        {{ form.allergy_score(class="form-control", type="number", step="0.01") }}
+        {{ field_error_messages(form.allergy_score) }}
+      </div>
+      <div class="form-group">
+        {{ form.description.label }}
+        {{ form.description(class="form-control", rows="3") }}
+        {{ field_error_messages(form.description) }}
+      </div>
+      <div class="form-group">
+        {{ form.image.label }}<br>
+        {{ form.image }}
+        {{ field_error_messages(form.image) }}
+      </div>
+      <div class="form-group">
+        {{ form.cuisine.label }}
+        {{ form.cuisine(class="form-control") }}
+        {{ field_error_messages(form.cuisine) }}
+      </div>
+      <div class="form-group">
+        {{ form.allergen.label }}
+        {{ form.allergen(class="form-control") }}
+        {{ field_error_messages(form.allergen) }}
+      </div>
+      <div class="form-group">
+        {{ form.recaptcha }}
+      </div>
+      <hr>
+      {{ form.submit(class="btn btn-primary form-control") }}
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block javascript %}
+<script src="{{ url_for('static', filename='js/allergen.js') }}">
+</script>
+{% endblock %}

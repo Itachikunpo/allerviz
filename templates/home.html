@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% set active_page = 'home' %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-lg-3">
+      <div class="my-4">
+        <form class="filter-form" action="{{ url_for('home') }}" method="GET">
+          <div class="form-group">
+            {{ form.restaurant_name.label }}
+            {{ form.restaurant_name(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.allergy_score.label }}
+            {{ form.allergy_score(class="form-control") }}
+          </div>
+          <div class="form-group">
+            {{ form.cuisine.label }}
+            {{ form.cuisine(class="form-control cuisine-filter") }}
+          </div>
+          <div class="form-group">
+            {{ form.allergen.label }}
+            {{ form.allergen(class="form-control") }}
+          </div>
+          {{ form.submit(class="btn btn-primary form-control") }}
+        </form>
+        <br>
+        <div>
+          <a class="btn btn-primary form-control" type="reset" value="Reset" href="{{ url_for('home') }}">Reset</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="row my-5 card-wrapper">
+        {% if items %}
+        {% for item in items %}
+        <div class="col-lg-4 col-md-6 mb-4">
+          <div class="card h-100">
+            <div class="embed-responsive embed-responsive-16by9">
+              <a href="{{ url_for('item', item_id=item.id) }}">
+                <img class="card-img-top embed-responsive-item" src="{% if item.image %}{{ url_for('uploads', filename=item.image) }}{% else %}{{ url_for('static', filename='images/allerviz_placeholder.png') }}{% endif %}" alt="">
+              </a>
+            </div>
+            <div class="card-body">
+              <h4 class="card-title">
+                <a href="{{ url_for('item', item_id=item.id) }}">{{ item.restaurant_name }}</a>
+              </h4>
+              <h5>{{ "%.2f" | format(item.allergy_score) }}</h5>
+              <p class="card-text">{{ item.description | safe }}</p>
+            </div>
+            <div class="card-footer">
+              <small class="text-muted">
+                {{ item.cuisine }} -> {{ item.allergen }}
+              </small>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <h1 class="offset-lg-3">No items to show.</h1>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+{% block javascript %}
+<script src="{{ url_for('static', filename='js/allergen.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filter.js') }}"></script>
+{% endblock %}

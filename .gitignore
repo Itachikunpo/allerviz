@@ -1,0 +1,5 @@
+_pycache_/
+*.db
+favicon_io/
+AllerViz_00*.svg
+*.pyc
