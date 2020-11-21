@@ -211,7 +211,7 @@ def delete_item(item_id):
 @app.route("/item/<int:item_id>")
 def item(item_id):
     c = get_db().cursor()
-    item_from_db = c.execute("""SELECT
+    c.execute("""SELECT
                    i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, s.name
                    FROM
                    items AS i
@@ -236,10 +236,13 @@ def item(item_id):
         item = {}
 
     if item:
+
+        c.execute("""SELECT menu_item_name, description, allergen, allergy_score FROM menu_items
+                                    WHERE item_id = ? """, (item_id,))
+        menu = c.fetchall()
+
         comments_from_db = c.execute("""SELECT content FROM comments
-                    WHERE item_id = ? ORDER BY id DESC""",
-                    (item_id,)
-        )
+                    WHERE item_id = ? ORDER BY id DESC""", (item_id,))
         comments = []
         for row in comments_from_db:
             comment = {
@@ -247,12 +250,12 @@ def item(item_id):
             }
             comments.append(comment)
 
-        commentForm    = NewCommentForm()
+        commentForm = NewCommentForm()
         commentForm.item_id.data = item_id
 
         deleteItemForm = DeleteItemForm()
 
-        return render_template("item.html", commentForm=commentForm, item=item, comments=comments, deleteItemForm=deleteItemForm)
+        return render_template("item.html", commentForm=commentForm, item=item, comments=comments, menu=menu, deleteItemForm=deleteItemForm)
     return redirect(url_for("home"))
 
 @app.route("/comment/new", methods=["POST"])

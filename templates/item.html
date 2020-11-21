@@ -27,6 +27,59 @@
       </div>
     </div>
 
+    <style>
+      #resto_menu {
+        font-family: Arial, Helvetica, sans-serif;
+        border-collapse: collapse;
+        width: 100%;
+      }
+      
+      #resto_menu td, #resto_menu th {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      
+      #resto_menu tr:nth-child(even){background-color: #f2f2f2;}
+      
+      #resto_menu tr:hover {background-color: #ddd;}
+      
+      #resto_menu th {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        text-align: left;
+        background-color: #4ca0af;
+        color: white;
+      }
+    </style>
+
+    <table id="resto_menu">
+      <thead>
+        <tr>
+            <th>Menu Item</th>
+            <th>Description</th>
+            <th>Allergen</th>
+            <th>Allergy Score</th>
+        </tr>
+      </thead>
+      <tbody>
+      {%- for row in menu%}
+        <tr>
+          <td>{{ row[0] }}</td>
+          <td>{{ row[1] }}</td>
+          <td>{{ row[2] }}</td>
+          
+          {% if row[3] >= 80 %}
+              <td style="background-color:rgb(128, 226, 128)">{{ row[3] }}</td>
+          {% elif row[3] >= 50 %}
+              <td style="background-color:rgb(238, 238, 90)">{{ row[3] }}</td>
+          {% else %}
+              <td style="background-color:rgb(236, 112, 112)">{{ row[3] }}</td>
+          {% endif %}
+        </tr>
+      {%- endfor -%}
+      </tbody>
+    </table>
+
     <div class="card card-outline-secondary my-4">
       <div class="card-header">
         Product Reviews
