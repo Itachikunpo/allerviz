@@ -1,3 +1,10 @@
+
+import pdb
+import sqlite3
+import os
+import datetime
+from pathlib2 import Path
+from secrets import token_hex
 from flask import Flask, jsonify, send_from_directory, render_template, request, redirect, url_for, g, flash, Markup as flask_Markup
 from flask_wtf import FlaskForm, RecaptchaField
 from flask_wtf.file import FileAllowed, FileRequired
@@ -6,24 +13,23 @@ from wtforms.validators import InputRequired, DataRequired, Length, ValidationEr
 from wtforms.widgets import Input
 from werkzeug.utils import secure_filename, escape, unescape
 from markupsafe import Markup
-import pdb
-import sqlite3
-import os
-import datetime
-from secrets import token_hex
+from database.db_init import sqliteDB
+from database.allervizdb import AllervizDB
 
-basedir = os.path.abspath(os.path.dirname(__file__))
+
+basedir = Path(__file__).absolute()
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "secretkey"
+app.config["SECRET_KEY"] = "Guava&CheeseEmpanadasAreTheBest"
 app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["jpeg", "jpg", "png"]
+app.config["ALLOWED_FILE_EXTENSIONS"] = ["json", "csv"]
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
-app.config["IMAGE_UPLOADS"] = os.path.join(basedir, "uploads")
+app.config["IMAGE_UPLOADS"] = f"{basedir.joinpath('uploads')}"
 
 app.config["TESTING"] = True
 
-app.config["RECAPTCHA_PUBLIC_KEY"] = "6LftyNMUAAAAANHsGBeDjOxqGbIE1sdahNHU2GYv"
-app.config["RECAPTCHA_PRIVATE_KEY"] = "6LftyNMUAAAAAJ1ZGq-NHzvf_4YU8VOeaXmg3-fe"
+app.config["RECAPTCHA_PUBLIC_KEY"] = "6LcwtOQZAAAAAP2TPQkLcs7iDqztiiQWDcjvwr8R"
+app.config["RECAPTCHA_PRIVATE_KEY"] = "6LcwtOQZAAAAAAoRj7o0zQTXE-qHyctU9Zy_g3wK"
 
 class AllergyScoreInput(Input):
     input_type = "number"
@@ -47,10 +53,11 @@ class AllergyScoreField(DecimalField):
     widget = AllergyScoreInput()
 
 class ItemForm(FlaskForm):
-    restaurant_name       = StringField("Restaurant Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=5, max=20, message="Input must be between 5 and 20 characters long")])
-    allergy_score       = AllergyScoreField("Allergy Score")
-    description = TextAreaField("Description", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=5, max=40, message="Input must be between 5 and 40 characters long")])
-    image       = FileField("Image", validators=[FileAllowed(app.config["ALLOWED_IMAGE_EXTENSIONS"], "Images only!")])
+    restaurant_name = StringField("Restaurant Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=3, max=20, message="Input must be between 5 and 20 characters long")])
+    food_item_name  = StringField("Food Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!")])
+    allergy_score   = AllergyScoreField("Allergy Score")
+    description     = TextAreaField("Description", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=5, max=40, message="Input must be between 5 and 40 characters long")])
+    image           = FileField("Image", validators=[FileAllowed(app.config["ALLOWED_IMAGE_EXTENSIONS"], "Images only!")])
 
 class BelongsToOtherFieldOption:
     def __init__(self, table, belongs_to, foreign_key=None, message=None):
@@ -94,7 +101,12 @@ class BelongsToOtherFieldOption:
 
 class NewItemForm(ItemForm):
     cuisine     = SelectField("Cuisine", coerce=int)
-    allergen    = SelectField("allergen", coerce=int, validators=[BelongsToOtherFieldOption(table="allergens", belongs_to="cuisine", message="allergen does not belong to that cuisine.")])
+    allergen    = SelectField("Allergen", coerce=int, validators=[BelongsToOtherFieldOption(table="allergens", belongs_to="cuisine", message="allergen does not belong to that cuisine.")])
+    recaptcha   = RecaptchaField()
+    submit      = SubmitField("Submit")
+
+class UploadNewItemForm(ItemForm):
+    image       = FileField("CSV or JSON file", validators=[FileAllowed(app.config["ALLOWED_FILE_EXTENSIONS"], "CSV or JSON files only!")])
     recaptcha   = RecaptchaField()
     submit      = SubmitField("Submit")
 
@@ -108,7 +120,7 @@ class FilterForm(FlaskForm):
     restaurant_name = StringField("Restaurant Name", validators=[Length(max=20)])
     allergy_score   = SelectField("Allergy Score", coerce=int, choices=[(0, "---"), (1, "Max to Min"), (2, "Min to Max")])
     cuisine         = SelectField("Cuisine", coerce=int)
-    allergen        = SelectField("allergen", coerce=int)
+    allergen        = SelectField("Allergen", coerce=int)
     submit          = SubmitField("Filter")
 
 class NewCommentForm(FlaskForm):
@@ -117,175 +129,14 @@ class NewCommentForm(FlaskForm):
     submit  = SubmitField("Submit")
 
 
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static'),
-                          'images/favicon.ico', mimetype='image/vnd.microsoft.icon')
-
-@app.route("/cuisine/<int:cuisine_id>")
-def cuisine(cuisine_id):
-    c = get_db().cursor()
-    c.execute("""SELECT id, name FROM allergens
-                 WHERE cuisine_id = ?""",
-                 (cuisine_id,)
-    )
-    allergens = c.fetchall()
-
-    return jsonify(allergens=allergens)
-
-@app.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
-def edit_item(item_id):
-    conn = get_db()
-    c = conn.cursor()
-    item_from_db = c.execute("SELECT * FROM items WHERE id = ?", (item_id,))
-    row = c.fetchone()
-    try:
-        item = {
-            "id": row[0],
-            "restaurant_name": row[1],
-            "description": row[2],
-            "allergy_score": row[3],
-            "image": row[4]
-        }
-    except:
-        item = {}
-
-    if item:
-        form = EditItemForm()
-        if form.validate_on_submit():
-
-            filename = item["image"]
-            if form.image.data:
-                filename = save_image_upload(form.image)
-
-            c.execute("""UPDATE items SET
-            restaurant_name = ?, description = ?, allergy_score = ?, image = ?
-            WHERE id = ?""",
-                (
-                    escape(form.restaurant_name.data),
-                    escape(form.description.data),
-                    float(form.allergy_score.data),
-                    filename,
-                    item_id
-                )
-            )
-            conn.commit()
-
-            flash("Item {} has been successfully updated".format(form.restaurant_name.data), "success")
-            return redirect(url_for("item", item_id=item_id))
-
-        form.restaurant_name.data       = item["restaurant_name"]
-        form.description.data = unescape(item["description"])
-        form.allergy_score.data       = item["allergy_score"]
-
-
-        return render_template("edit_item.html", item=item, form=form)
-
-    return redirect(url_for("home"))
-
-@app.route("/item/<int:item_id>/delete", methods=["POST"])
-def delete_item(item_id):
-    conn = get_db()
-    c = conn.cursor()
-
-    item_from_db = c.execute("SELECT * FROM items WHERE id = ?", (item_id,))
-    row = c.fetchone()
-    try:
-        item = {
-            "id": row[0],
-            "restaurant_name": row[1]
-        }
-    except:
-        item = {}
-
-    if item:
-        c.execute("DELETE FROM items WHERE id = ?", (item_id,))
-        conn.commit()
-
-        flash("Item {} has been successfully deleted.".format(item["restaurant_name"]), "success")
-    else:
-        flash("This item does not exist.", "danger")
-
-    return redirect(url_for("home"))
-
-@app.route("/item/<int:item_id>")
-def item(item_id):
-    c = get_db().cursor()
-    item_from_db = c.execute("""SELECT
-                   i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, s.name
-                   FROM
-                   items AS i
-                   INNER JOIN cuisines AS c ON i.cuisine_id = c.id
-                   INNER JOIN allergens AS s ON i.allergen_id = s.id
-                   WHERE i.id = ?""",
-                   (item_id,)
-    )
-    row = c.fetchone()
-
-    try:
-        item = {
-            "id": row[0],
-            "restaurant_name": row[1],
-            "description": row[2],
-            "allergy_score": row[3],
-            "image": row[4],
-            "cuisine": row[5],
-            "allergen": row[6]
-        }
-    except:
-        item = {}
-
-    if item:
-        comments_from_db = c.execute("""SELECT content FROM comments
-                    WHERE item_id = ? ORDER BY id DESC""",
-                    (item_id,)
-        )
-        comments = []
-        for row in comments_from_db:
-            comment = {
-                "content": row[0]
-            }
-            comments.append(comment)
-
-        commentForm    = NewCommentForm()
-        commentForm.item_id.data = item_id
-
-        deleteItemForm = DeleteItemForm()
-
-        return render_template("item.html", commentForm=commentForm, item=item, comments=comments, deleteItemForm=deleteItemForm)
-    return redirect(url_for("home"))
-
-@app.route("/comment/new", methods=["POST"])
-def new_comment():
-    conn = get_db()
-    c = conn.cursor()
-    form = NewCommentForm()
-
-    try:
-        is_ajax = int(request.form["ajax"])
-    except:
-        is_ajax = 0
-
-    if form.validate_on_submit():
-
-        c.execute("""INSERT INTO comments (content, item_id)
-                     VALUES (?,?)""",
-                     (
-                        escape(form.content.data),
-                        form.item_id.data
-                     )
-        )
-        conn.commit()
-
-        if is_ajax:
-            return render_template("_comment.html", content=form.content.data)
-
-    if is_ajax:
-        return "Content is required.", 400
-    return redirect(url_for('item', item_id=form.item_id.data))
 
 @app.route("/")
 def home():
+    """home [summary]
+
+    :return: [description]
+    :rtype: [type]
+    """
     conn = get_db()
     c = conn.cursor()
 
@@ -364,12 +215,82 @@ def home():
         return render_template("_items.html", items=items)
     return render_template("home.html", items=items, form=form)
 
-@app.route("/uploads/<filename>")
-def uploads(filename):
-    return send_from_directory(app.config["IMAGE_UPLOADS"], filename)
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """favicon [summary]
+
+    :return: [description]
+    :rtype: [type]
+    """
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                                'images/favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+
+@app.route("/item/<int:item_id>")
+def item(item_id):
+    """item [summary]
+
+    :param item_id: [description]
+    :type item_id: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+    c = get_db().cursor()
+    item_from_db = c.execute("""SELECT
+                   i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, s.name
+                   FROM
+                   items AS i
+                   INNER JOIN cuisines AS c ON i.cuisine_id = c.id
+                   INNER JOIN allergens AS s ON i.allergen_id = s.id
+                   WHERE i.id = ?""",
+                   (item_id,)
+    )
+    row = c.fetchone()
+
+    try:
+        item = {
+            "id": row[0],
+            "restaurant_name": row[1],
+            "description": row[2],
+            "allergy_score": row[3],
+            "image": row[4],
+            "cuisine": row[5],
+            "allergen": row[6]
+        }
+    except:
+        item = {}
+
+
+    if item:
+        comments_from_db = c.execute("""SELECT content FROM comments
+                    WHERE item_id = ? ORDER BY id DESC""",
+                    (item_id,)
+        )
+        comments = []
+        for row in comments_from_db:
+            comment = {
+                "content": row[0]
+            }
+            comments.append(comment)
+
+        commentForm    = NewCommentForm()
+        commentForm.item_id.data = item_id
+
+        deleteItemForm = DeleteItemForm()
+
+        return render_template("item.html", commentForm=commentForm, item=item, comments=comments, deleteItemForm=deleteItemForm)
+    return redirect(url_for("home"))
+
 
 @app.route("/item/new", methods=["GET", "POST"])
 def new_item():
+    """new_item [summary]
+
+    :return: [description]
+    :rtype: [type]
+    """
     conn = get_db()
     c = conn.cursor()
     form = NewItemForm()
@@ -407,7 +328,172 @@ def new_item():
 
     return render_template("new_item.html", form=form)
 
+
+@app.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
+def edit_item(item_id):
+    """edit_item [summary]
+
+    :param item_id: [description]
+    :type item_id: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+    conn = get_db()
+    c = conn.cursor()
+    item_from_db = c.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+    row = c.fetchone()
+    try:
+        item = {
+            "id": row[0],
+            "restaurant_name": row[1],
+            "description": row[2],
+            "allergy_score": row[3],
+            "image": row[4]
+        }
+    except:
+        item = {}
+
+    if item:
+        form = EditItemForm()
+        if form.validate_on_submit():
+
+            filename = item["image"]
+            if form.image.data:
+                filename = save_image_upload(form.image)
+
+            c.execute("""UPDATE items SET
+            restaurant_name = ?, description = ?, allergy_score = ?, image = ?
+            WHERE id = ?""",
+                (
+                    escape(form.restaurant_name.data),
+                    escape(form.description.data),
+                    float(form.allergy_score.data),
+                    filename,
+                    item_id
+                )
+            )
+            conn.commit()
+
+            flash("Item {} has been successfully updated".format(form.restaurant_name.data), "success")
+            return redirect(url_for("item", item_id=item_id))
+
+        form.restaurant_name.data       = item["restaurant_name"]
+        form.description.data = unescape(item["description"])
+        form.allergy_score.data       = item["allergy_score"]
+
+
+        return render_template("edit_item.html", item=item, form=form)
+
+    return redirect(url_for("home"))
+
+@app.route("/item/<int:item_id>/delete", methods=["POST"])
+def delete_item(item_id):
+    """delete_item [summary]
+
+    :param item_id: [description]
+    :type item_id: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+    conn = get_db()
+    c = conn.cursor()
+
+    item_from_db = c.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+    row = c.fetchone()
+    try:
+        item = {
+            "id": row[0],
+            "restaurant_name": row[1]
+        }
+    except:
+        item = {}
+
+    if item:
+        c.execute("DELETE FROM items WHERE id = ?", (item_id,))
+        conn.commit()
+
+        flash("Item {} has been successfully deleted.".format(item["restaurant_name"]), "success")
+    else:
+        flash("This item does not exist.", "danger")
+
+    return redirect(url_for("home"))
+
+
+@app.route("/comment/new", methods=["POST"])
+def new_comment():
+    """new_comment [summary]
+
+    :return: [description]
+    :rtype: [type]
+    """
+    conn = get_db()
+    c = conn.cursor()
+    form = NewCommentForm()
+
+    try:
+        is_ajax = int(request.form["ajax"])
+    except:
+        is_ajax = 0
+
+    if form.validate_on_submit():
+
+        c.execute("""INSERT INTO comments (content, item_id)
+                     VALUES (?,?)""",
+                     (
+                        escape(form.content.data),
+                        form.item_id.data
+                     )
+        )
+        conn.commit()
+
+        if is_ajax:
+            return render_template("_comment.html", content=form.content.data)
+
+    if is_ajax:
+        return "Content is required.", 400
+    return redirect(url_for('item', item_id=form.item_id.data))
+
+
+@app.route("/cuisine/<int:cuisine_id>")
+def cuisine(cuisine_id):
+    """cuisine [summary]
+
+    :param cuisine_id: [description]
+    :type cuisine_id: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+
+    c = get_db().cursor()
+    c.execute("""SELECT id, name FROM allergens
+                 WHERE cuisine_id = ?""",
+                 (cuisine_id,)
+    )
+    allergens = c.fetchall()
+
+    return jsonify(allergens=allergens)
+
+
+@app.route("/uploads/<filename>")
+def uploads(filename):
+    """uploads [summary]
+
+    :param filename: [description]
+    :type filename: [type]
+    :return: [description]
+    :rtype: [type]
+    """
+    return send_from_directory(app.config["IMAGE_UPLOADS"], filename)
+
+
 def save_image_upload(image):
+    """save_image_upload [summary]
+
+    :param image: [description]
+    :type image: [type]
+    :return: [description]
+    :rtype: [type]
+    """
     format = "%Y%m%dT%H%M%S"
     now = datetime.datetime.utcnow().strftime(format)
     random_string = token_hex(2)
@@ -417,13 +503,47 @@ def save_image_upload(image):
     return filename
 
 def get_db():
+    """get_db [summary]
+
+    :return: [description]
+    :rtype: [type]
+    """
+    DB_FILE = 'allerviz.db'
+
     db = getattr(g, "_database", None)
     if db is None:
-        db = g._database = sqlite3.connect("db/allerviz.db")
+        db = g._database = sqliteDB(DB_FILE).get_dbcon()
     return db
+
+
+def get_mongodb(collection_name=None):
+    """get_mongodb
+    Returns reference to the mongodb interface class for this application.
+
+    If a collection_name is proved then
+
+    :param collection_name: [description], defaults to None
+    :type collection_name: [type], optional
+    :return: [description]
+    :rtype: [type]
+    """
+    db = getattr(g, "_database", None)
+    if db is None:
+        mongodb = AllervizDB(db_name='allerviz')
+        mongodb.Load(Path("database/data/Portland-Honolulu-San_Diego-Grubhub.csv").resolve())
+        db = g._database = mongodb
+    if collection_name is None:
+        return db
+    else:
+        return mongodb.GetCollection(collection_name)
 
 @app.teardown_appcontext
 def close_connection(exception):
+    """close_connection [summary]
+
+    :param exception: [description]
+    :type exception: [type]
+    """
     db = getattr(g, "_database", None)
     if db is not None:
         db.close()
