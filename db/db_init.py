@@ -9,6 +9,7 @@ c.execute("DROP TABLE IF EXISTS items")
 c.execute("DROP TABLE IF EXISTS cuisines")
 c.execute("DROP TABLE IF EXISTS allergens")
 c.execute("DROP TABLE IF EXISTS comments")
+c.execute("DROP TABLE IF EXISTS menu_items")
 
 c.execute("""CREATE TABLE cuisines(
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,6 +34,17 @@ c.execute("""CREATE TABLE items(
                     allergen_id     INTEGER,
                     FOREIGN KEY(cuisine_id) REFERENCES cuisines(id),
                     FOREIGN KEY(allergen_id) REFERENCES allergens(id)
+)""")
+
+c.execute("""CREATE TABLE menu_items(
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    item_id         INTEGER,
+                    restaurant_name TEXT,
+                    menu_item_name  TEXT,
+                    description     TEXT,
+                    allergen        TEXT,
+                    allergy_score   REAL,
+                    FOREIGN KEY(item_id) REFERENCES items(id)
 )""")
 
 c.execute("""CREATE TABLE comments(
@@ -71,6 +83,16 @@ items = [
     ("Linguine's", "Authenic Italian", 22.0, "", 1, 2)
 ]
 c.executemany("INSERT INTO items (restaurant_name, description, allergy_score, image, cuisine_id, allergen_id) VALUES (?,?,?,?,?,?)", items)
+
+menu_items = [
+    (1, "Red Robin", "Just Krispy", "The Original Spicy Tuna Krispy Rice (2 pc)King Salmon & Yuzu Krispy Rice (2 pc)", "", 90.0), 
+    (1, "Red Robin", "Chicken Sandwich", "Chicken, Whole wheat bread, tomato, lettuce, cheese", "cheese", 60.0),
+    (2, "Five Guys", "Beef Burger", "lettuce, cheese, fries, tomato, , pickles, onion and choice of sauce", "", 100.0),
+    (3, "Super Rico", "Deluxe Quesadilla", "Jack cheese, tomatoes, onions, guacamole and sour cream.", "", 100.0), 
+    (4, "Cocina 214", "Capucino", "coffee, milk, sugar", "milk", 49.0), 
+    (5, "Linguine's", "Seafood Linguini", "tomato sauce, shrimp, pasta", "shrimp", 60.0)
+]
+c.executemany("INSERT INTO menu_items (item_id, restaurant_name, menu_item_name, description, allergen, allergy_score) VALUES (?,?,?,?,?,?)", menu_items)
 
 comments = [
     ("This item is great!", 1),

@@ -3,3 +3,4 @@ _pycache_/
 favicon_io/
 AllerViz_00*.svg
 *.pyc
+.DS_Store
