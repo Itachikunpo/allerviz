@@ -1,9 +1,9 @@
 certifi==2020.6.20
-Click==7.0
+click==7.1.2
 Flask==1.1.2
 Flask-WTF==0.14.2
 itsdangerous==1.1.0
-Jinja2==2.10.3
+Jinja2==2.11.2
 MarkupSafe @ file:///opt/concourse/worker/volumes/live/cb778296-98db-45ad-411e-6f726e102dc3/volume/markupsafe_1594371638608/work
 mkl-fft==1.2.0
 mkl-random==1.1.1
@@ -14,6 +14,7 @@ pathlib2 @ file:///opt/concourse/worker/volumes/live/de518564-0d9f-405e-472b-381
 pymongo==3.11.0
 python-dateutil==2.8.1
 pytz==2020.1
+scipy @ file:///opt/concourse/worker/volumes/live/851446f6-a052-41c4-4243-67bb78999b49/volume/scipy_1604596178167/work
 six @ file:///opt/concourse/worker/volumes/live/5b31cb27-1e37-4ca5-6e9f-86246eb206d2/volume/six_1605205320872/work
-Werkzeug==0.16.0
+Werkzeug==1.0.1
 WTForms==2.2.1
