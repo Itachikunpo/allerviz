@@ -2,7 +2,7 @@
 import pymongo
 import json
 import pandas as pd
-from numpy import setdiff1d
+import numpy as np
 from pymongo import MongoClient
 from pathlib2 import Path
 
@@ -22,7 +22,7 @@ class AllervizDB(object):
         # TODO Remove the example section its just for testing
         if example:
             print("Restarting database with example data.\n"
-                  f"Defaulting to example database file: {self.__example_dbfile}")
+                  f"Defaulting to example database file: '{self.__example_dbfile}''")
             example_collection = self.__DB["Example"]
             self.LoadData(path=self.__example_dbfile)
         else:
@@ -31,8 +31,8 @@ class AllervizDB(object):
                 self.__InitRestaurantsCollection(data_path=Path(data_path).resolve())
             except FileNotFoundError:
                 raise FileNotFoundError("Failed to import data from LoadData(). Check relative pathing.\n"
-                                        f"\tGiven location not found: {data_path}\n"
-                                        f"\tCurrent location: {Path.cwd()}\n\n")
+                                        f"\tGiven location not found: '{data_path}'\n"
+                                        f"\tCurrent location: '{Path.cwd()}'\n\n")
 
         self.__loaded = True
 
@@ -44,35 +44,59 @@ class AllervizDB(object):
         menu_items = self.__DB["Restaurants_Menus"]
         menu_items_df = self.LoadData(path=data_path, rtn_df=True, clean_menu_data=True, reorg_menu_to_restaurant=True)
         self.InsertData(collection_name="Restaurants_Menus", data=menu_items_df)
-        self.__InitMenuItemsCollection(menu_items=menu_items_df)
-        pass
+        # self.__InitMenuItemsCollection(menu_items=menu_items_df)
 
     def __InitMenuItemsCollection(self, menu_items=None):
         restaurants = self.__DB["Menu_Items"]
-
-        """Create the data
-        """
         wrangled_data = menu_items
         # self.LoadData(collection_name="Restaurants_Menus", data=wrangled_data)
-        pass
+        raise NotImplementedError
 
     def __CleanMenuData(self, menu_data):
+        menu_data = menu_data.rename(columns={"menu_item":"item", "restaurant_name":"restaurant"}, errors="raise")
         menu_data['cuisine'] = menu_data['cuisine'].astype('object').map(lambda cuisine: cuisine.strip("|").split("|"))
         return menu_data
 
     def __ReorgMenuDataToRestauranteData(self, menu_data):
-        # group = df.groupby('restaurant_name')group.apply(lambda x: x['menu_items'].unique())
-        return menu_data
 
+        # Drop menu items and their description to get the top level data of the restaurant
+        menu_filtered = menu_data.drop(['item', 'description'], axis = 1)
+        menu_filtered = menu_filtered.drop_duplicates(subset="restaurant")
 
-    def LoadData(self, path=None, rtn_df=False, clean_menu_data=False, reorg_menu_to_restaurant=False):
+        # Initialize new dataframe for grouped menu items
+        restaurant_menu_items = pd.DataFrame()
+        # Start another DF by grouping on the restaurant name
+        menu_grouped = menu_data.groupby("restaurant")
+        # menu_grouped = menu_data.groupby("restaurant")['street','city', "state", "zip", "latitude", "longitude"].agg(["unique"])
+        # menu_grouped = menu_data.groupby("restaurant")['street','city', "state", "zip", "latitude", "longitude"].apply(lambda x: list(np.unique(x)))
+
+        # Iterate over the groups
+        for idx, grp in enumerate(menu_grouped.groups):
+            # grab the menu items per restaurant and recordize it to prep for insertion into DB
+            menu_items = menu_grouped.get_group(grp)[["item", "description"]].to_dict("records")
+
+            # Add to the DF the restaurant name and the list of menu items
+            restaurant_menu_items.loc[idx, ["restaurant", "menu"]] = grp, menu_items
+
+        # Join the dataframes on the restaurant names to add the menu items to the correct restaurant
+        reorged_menu_to_restaurants = menu_filtered.join(restaurant_menu_items.set_index('restaurant'), on='restaurant')
+
+        return reorged_menu_to_restaurants
+
+    def __CalculateMenuAllergyScores():
+        pass
+
+    def __CalculateRestaurantAllergyScores():
+        pass
+
+    def LoadData(self, path=None, rtn_df=False, **kwargs):
         path = Path(path).resolve()
-        print(f"Loading in data from file: \n\t{path}")
+        print(f"Loading in data from file: \n\t'{path}'")
         df = pd.read_csv(path, encoding = "utf-8")
 
-        if clean_menu_data:
+        if kwargs["clean_menu_data"] == True:
             df = self.__CleanMenuData(menu_data=df)
-        if reorg_menu_to_restaurant:
+        if kwargs["reorg_menu_to_restaurant"] == True:
             df = self.__ReorgMenuDataToRestauranteData(menu_data=df)
 
         if rtn_df:
@@ -95,32 +119,36 @@ class AllervizDB(object):
             else:
                 loaded_data = data
 
-
             self.__DB[collection_name].insert_many(loaded_data, ordered=False)
-            print(f"New Data was inserted into MongoDB Server({self.__db_name}), in Collection: {collection_name} ")
+            print(f"New Data inserted into MongoDB Server({self.__db_name}), Collection: '{collection_name}'")
         else:
-            print(f"The Collection, {collection_name}, was already found in database")
+            print(f"The Collection, '{collection_name}'', was already found in database")
 
-    def GetMenuItemsDataFrame(self, optional_query={}):
+    def QueryMenuItems(self, query={}, limit=None, rtn_df=False):
         # Make a query to the specific DB and Collection
-        return self.QueryToDataFrame(collectionName="Menu_Items", query=optional_query)
+        return self.QueryToDB(collection_name="Menu_Items", query=query, limit=limit, rtn_df=False)
 
-    def GetRestaurantsDataFrame(self, optional_query={}):
+    def QueryRestaurants(self, query={}, limit=None, rtn_df=False):
         # Make a query to the specific DB and Collection
-        return self.QueryToDataFrame(collectionName="Restaurants_Menus", query=optional_query)
+        return self.QueryToDB(collection_name="Restaurants_Menus", query=query, limit=limit, rtn_df=False)
 
-    def QueryToDataFrame(self, collectionName=None, query={}):
+    def QueryToDB(self, collection_name=None, query={}, limit=None, rtn_df=False):
         # Make a query to the specific Collection
-        if collectionName in self.GetCollectionNames():
-            if query:
-                data = self.__DB[collectionName].find(query)
+        if collection_name in self.GetCollectionNames():
+            if query and limit:
+                data = self.__DB[collection_name].find(query, limit=limit)
+            elif limit:
+                data = self.__DB[collection_name].find(limit=limit)
             else:
-                data = self.__DB[collectionName].find(query)
+                data = self.__DB[collection_name].find(query)
         else:  # Collection was not found
             data = None
 
         # Expand the cursor and construct the DataFrame
-        return pd.DataFrame(list(data))
+        if rtn_df:
+            return pd.DataFrame(list(data))
+        else:
+            return data
 
     def IsDBLoaded(self):
         return self.__loaded
@@ -138,16 +166,47 @@ class AllervizDB(object):
         if collection_name in self.GetCollectionNames():
             return self.__DB[collection_name]
         else:
-            return None
+            raise AttributeError(f"No Collection found with name: '{collection_name}'")
 
     def GetCollectionNames(self):
         return self.__DB.list_collection_names()
 
     def GetNamesOfRestaurants(self):
         if self.IsDBLoaded():
-            return self.__DB["Menu_Items"].distinct("restaurant_name")
+            return self.__DB["Restaurants_Menus"].distinct("restaurant")
         else:
             return None
+
+    def GetRestaurantsMenu(self, restaurant=None, rtn_df=False):
+        data = None
+        if isinstance(restaurant, list):
+            data = self.QueryRestaurants(query={ "restaurant": { "$in": restaurant } }, rtn_df=rtn_df)
+            if not rtn_df:
+                data =  [restaurant["menu"] for restaurant in data]
+        elif isinstance(restaurant, str):
+            data = self.QueryRestaurants(query={"restaurant": restaurant}, rtn_df=rtn_df)
+            if not rtn_df:
+                data = next(data)["menu"]
+        else:
+            raise AttributeError("No restaurant name given!! Unable to query.")
+
+        return data
+
+    def GetRestaurantsInfo(self, restaurant=None, rtn_df=False):
+        data = None
+        if isinstance(restaurant, list):
+            data = self.QueryRestaurants(query={ "restaurant": { "$in": restaurant } }, rtn_df=rtn_df)
+            if not rtn_df:
+                data = list(data)
+        elif isinstance(restaurant, str):
+            data = self.QueryRestaurants(query={"restaurant": restaurant}, rtn_df=rtn_df)
+            if not rtn_df:
+                data = next(data)
+        else:
+            raise AttributeError("No restaurant name given!! Unable to query.")
+
+        return data
+
 
     def GetNumberOfRestaurants(self):
         return len(self.GetNamesOfRestaurants())
@@ -158,7 +217,7 @@ class AllervizDB(object):
 
     def DropDatabase(self, db_name=None):
         if db_name is None:
-            db_del_list = setdiff1d(self.__client.database_names(), self.__base_dbs)
+            db_del_list = np.setdiff1d(self.__client.list_database_names(), self.__base_dbs)
             for db in db_del_list:
                 self.__client.drop_database(db)
         else:
@@ -167,97 +226,15 @@ class AllervizDB(object):
             except Exception as e:
                 print(e)
 
-# TODO REMOVE EVERYTHING BELOW
-#%%
-if __name__ == "__main__":
-    mongodb = AllervizDB(db_name='allerviz')
-    mongodb.Load(Path("data/Portland-Honolulu-San_Diego-Grubhub.csv").resolve())
-    df = mongodb.GetRestaurantsDataFrame()
-
-#%%
-if __name__ == "__main__":
-    print(len(df.to_dict('records')))
-    df["restaurant_name"].unique()
-
-#%%
-if __name__ == "__main__":
-    df = pd.DataFrame({'restaurant_name':['Krispy Rice', 'Krispy Rice', 'Mumbo Gumbo', 'Mumbo Gumbo','Mumbo Gumbo',], 'menu_items':['The Box', 'Krispy Heaven', "Shrimp 'n Grits", "Red Beans N' Rice", "Boudin Sausage"]})
-    print(df.head())
-    group = df.groupby('restaurant_name')
-    print(group.head())
-    df2 = group.apply(lambda x: x['menu_items'].unique())
-    print(df2.head())
-
-    print(df["restaurant_name"].unique())
-
-
-    test = [{"id":1,
-            "restaurant_name":"Krispy Rice",
-            "street":"1130 SW 17th Ave",
-            "city":"Portland",
-            "state":"OR",
-            "zip":"97205" ,
-            "latitude":45.518436,
-            "longitude":-122.690475 ,
-            "cuisine":["Asian", "Japanese"],
-            "menu":{"item":"The Box",
-                    "description":"Edamame, The Original Spicy Tuna Krispy Rice"
-                    },
-            },
-            {"id":2,
-            "restaurant_name":"Mumbo Gumbo",
-            "street":"6200 SE Milwaukie Ave",
-            "city":"Portland",
-            "state":"OR",
-            "zip":"97202",
-            "latitude":45.477779,
-            "longitude":-122.64888,
-            "cuisine":["American, Southern"],
-            "menu":{"item":"Gumbo(build your own)",
-                    "description":"Savory house-made sauce using fresh ingredient..."
-                    },
-            }
-    ]
-
-    mongodb.InsertData(collection_name="test_nested",data=test)
-
-#%%
-if __name__ == "__main__":
-    df = mongodb.GetRestaurantsDataFrame()
-    df_filtered = df.drop(['_id', 'menu_item', 'description'], axis = 1)
-    df_filtered = df_filtered.drop_duplicates(subset="restaurant_name")
-    # print(df.head())
-
-    df_filtered = df_filtered["Menu_Items"].astype("object")
-    print(len(df_filtered))
-    y = 0
-    for i, x in enumerate(df_filtered["restaurant_name"]):
-        df2 = df[(df["restaurant_name"] == x)]
-        df_filtered.loc[df_filtered["restaurant_name"] == x, "Menu_Items"] = df2
-        y+=1
-        if y==3:
-            break
-    print(len(df2))
-    df_filtered.head()
-    df2
-
-    dict(tuple(df.groupby('restaurant_name')))
-    test = df.groupby("restaurant_name")
-    t = [test.get_group(x)[["menu_item", "description"]] for x in test.groups]
-
-#%%
-if __name__ == "__main__":
-    df = pd.read_csv("data/Portland-Honolulu-San_Diego-Grubhub.csv", encoding = "ISO-8859-1")
-
-# print(f"Collections in DB: {mongodb.GetCollectionNames()}")
-# print(f"Keys in Documents of Menu_Items Collection: {mongodb.GetCollection('Menu_Items').find(limit=1).next().keys()}")
-# # print(f"Names of Restaurants in DB: {mongodb.GetNamesOfRestaurants()}")
-# print(f"Number of Restaurants in in DB: {mongodb.GetNumberOfRestaurants()}")
-# print(f"Estimate Document count in Menu_items: {mongodb.GetEstimatedDocumentCount('Menu_Items')}")
-
-# print(mongodb.GetCollectionNames())
-# print(f"Documents count in Menu_Items: {mongodb.GetEstimatedDocumentCount()}\n\n")
-# for document in mongodb.GetCollection('Menu_Items').find(limit=2):
-#     print(document, "\n")
-
 # %%
+if __name__ == "__main__":
+    import pdb
+    print(Path.cwd())
+    if str(Path.cwd()) != __file__:
+        path = "database/data/Portland-Honolulu-San_Diego-Grubhub.csv"
+    else:
+        path = "data/Portland-Honolulu-San_Diego-Grubhub.csv"
+
+    mongodb = AllervizDB(db_name='allerviz')
+    mongodb.Load(Path(path).resolve())
+    menu = mongodb.GetRestaurantsMenu("Krispy Rice")

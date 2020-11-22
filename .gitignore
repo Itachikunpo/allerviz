@@ -6,14 +6,15 @@
 *.tar.gz
 *.xlsx
 *.csv
-openrefine_operations
-AllerViz_00*.svg
-favicon_package*
+Multi-Label Data/
 _pycache_/
 .ipynb_checkpoints/
 database/mongo/*
 docs/build/*
 
+openrefine_operations
+AllerViz_00*.svg
+favicon_package*
 
 # do not ignore
 !.gitignore
