@@ -561,7 +561,7 @@ def get_mongodb(collection_name=None):
     db = MONGODB
     if db is None:
         print("\n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n")
-        path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final-short.csv").resolve()
+        path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final.csv").resolve()
         mongodb = AllervizDB(db_name='allerviz')
         mongodb.Load(data_path=path, checkdb_exists=True)
         db = g._database = mongodb
