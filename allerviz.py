@@ -13,7 +13,7 @@ from wtforms.validators import InputRequired, DataRequired, Length, ValidationEr
 from wtforms.widgets import Input
 from werkzeug.utils import secure_filename, escape, unescape
 from markupsafe import Markup
-from database.db_init import sqliteDB
+from database.sqldb_init import sqliteDB
 from database.allervizdb import AllervizDB
 
 
@@ -42,19 +42,20 @@ class AllergyScoreInput(Input):
             kwargs["value"] = field._value()
         if "required" not in kwargs and "required" in getattr(field, "flags", []):
             kwargs["required"] = True
-        return Markup("""<div class="input-group mb-3">
+        return Markup("""
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
-                        <span class="input-group-text">$</span>
+                        <span class="input-group-text">%%</span>
                     </div>
                     <input %s>
-        </div>""" % self.html_params(name=field.name, **kwargs))
+                </div>""" % self.html_params(name=field.name, **kwargs))
 
 class AllergyScoreField(DecimalField):
     widget = AllergyScoreInput()
 
 class ItemForm(FlaskForm):
-    restaurant_name = StringField("Restaurant Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=3, max=20, message="Input must be between 5 and 20 characters long")])
-    food_item_name  = StringField("Food Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!")])
+    restaurant      = StringField("Restaurant Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=3, max=20, message="Input must be between 5 and 20 characters long")])
+    food_item       = StringField("Food Name", validators=[InputRequired("Input is required!"), DataRequired("Data is required!")])
     allergy_score   = AllergyScoreField("Allergy Score")
     description     = TextAreaField("Description", validators=[InputRequired("Input is required!"), DataRequired("Data is required!"), Length(min=5, max=40, message="Input must be between 5 and 40 characters long")])
     image           = FileField("Image", validators=[FileAllowed(app.config["ALLOWED_IMAGE_EXTENSIONS"], "Images only!")])
@@ -117,7 +118,7 @@ class DeleteItemForm(FlaskForm):
     submit      = SubmitField("Delete item")
 
 class FilterForm(FlaskForm):
-    restaurant_name = StringField("Restaurant Name", validators=[Length(max=20)])
+    restaurant      = StringField("Restaurant Name", validators=[Length(max=20)])
     allergy_score   = SelectField("Allergy Score", coerce=int, choices=[(0, "---"), (1, "Max to Min"), (2, "Min to Max")])
     cuisine         = SelectField("Cuisine", coerce=int)
     allergen        = SelectField("Allergen", coerce=int)
@@ -129,6 +130,7 @@ class NewCommentForm(FlaskForm):
     submit  = SubmitField("Submit")
 
 
+UseSqlite = False
 
 @app.route("/")
 def home():
@@ -137,9 +139,9 @@ def home():
     :return: [description]
     :rtype: [type]
     """
+
     conn = get_db()
     c = conn.cursor()
-
     form = FilterForm(request.args, meta={"csrf": False})
 
     c.execute("SELECT id, name FROM cuisines")
@@ -152,68 +154,91 @@ def home():
     allergens.insert(0, (0, "---"))
     form.allergen.choices = allergens
 
-    query = """SELECT
-                    i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, s.name
-                    FROM
-                    items AS i
-                    INNER JOIN cuisines AS c ON i.cuisine_id = c.id
-                    INNER JOIN allergens AS s ON i.allergen_id = s.id
-    """
-
     try:
         is_ajax = int(request.args["ajax"])
     except:
         is_ajax = 0
 
-    if form.validate():
 
-        filter_queries = []
-        parameters = []
+    if UseSqlite:
+        query = """SELECT
+                        i.id, i.restaurant, i.description, i.allergy_score, i.image, c.name, s.name
+                        FROM
+                        items AS i
+                        INNER JOIN cuisines AS c ON i.cuisine_id = c.id
+                        INNER JOIN allergens AS s ON i.allergen_id = s.id
+        """
 
-        if form.restaurant_name.data.strip():
-            filter_queries.append("i.restaurant_name LIKE ?")
-            parameters.append("%" + escape(form.restaurant_name.data) + "%")
+        if form.validate():
 
-        if form.cuisine.data:
-            filter_queries.append("i.cuisine_id = ?")
-            parameters.append(form.cuisine.data)
+            filter_queries = []
+            parameters = []
 
-        if form.allergen.data:
-            filter_queries.append("i.allergen_id = ?")
-            parameters.append(form.allergen.data)
+            if form.restaurant.data.strip():
+                filter_queries.append("i.restaurant LIKE ?")
+                parameters.append("%" + escape(form.restaurant.data) + "%")
 
-        if filter_queries:
-            query += " WHERE "
-            query += " AND ".join(filter_queries)
+            if form.cuisine.data:
+                filter_queries.append("i.cuisine_id = ?")
+                parameters.append(form.cuisine.data)
 
-        if form.allergy_score.data:
-            if form.allergy_score.data == 1:
-                query += " ORDER BY i.allergy_score DESC"
+            if form.allergen.data:
+                filter_queries.append("i.allergen_id = ?")
+                parameters.append(form.allergen.data)
+
+            if filter_queries:
+                query += " WHERE "
+                query += " AND ".join(filter_queries)
+
+            if form.allergy_score.data:
+                if form.allergy_score.data == 1:
+                    query += " ORDER BY i.allergy_score DESC"
+                else:
+                    query += " ORDER BY i.allergy_score"
             else:
-                query += " ORDER BY i.allergy_score"
+                query += " ORDER BY i.id DESC"
+
+            items_from_db = c.execute(query, tuple(parameters))
         else:
-            query += " ORDER BY i.id DESC"
+            items_from_db = c.execute(query + "ORDER BY i.id DESC")
 
-        items_from_db = c.execute(query, tuple(parameters))
+        items = []
+        for row in items_from_db:
+            item = {
+                "id": row[0],
+                "restaurant": row[1],
+                "description": row[2],
+                "total_allergy_score": row[3],
+                "image": row[4],
+                "cuisine": row[5],
+                "allergen": row[6]
+            }
+            items.append(item)
     else:
-        items_from_db = c.execute(query + "ORDER BY i.id DESC")
-
-    items = []
-    for row in items_from_db:
-        item = {
-            "id": row[0],
-            "restaurant_name": row[1],
-            "description": row[2],
-            "allergy_score": row[3],
-            "image": row[4],
-            "cuisine": row[5],
-            "allergen": row[6]
-        }
-        items.append(item)
+        example_items = [
+            {'id': 5, 'restaurant_name': "Linguine's", 'description': 'Authenic Italian', 'allergy_score': 22.0, 'image': '', 'cuisine': 'Italian', 'allergen': 'Eggs'},
+            {'id': 4, 'restaurant_name': 'Cocina 214', 'description': 'Authentic Tex Mex', 'allergy_score': 32.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Dairy'},
+            {'id': 3, 'restaurant_name': 'Super Rico', 'description': 'Columbian to the core!', 'allergy_score': 100.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Eggs'},
+            {'id': 2, 'restaurant_name': 'Five Guys', 'description': 'Just 5 guys and some burgers', 'allergy_score': 4.0, 'image': '', 'cuisine': 'American', 'allergen': 'Fish'},
+            {'id': 1, 'restaurant_name': 'Red Robin', 'description': 'American all around', 'allergy_score': 67.0, 'image': '', 'cuisine': 'American', 'allergen': 'Tree nuts'}
+        ]
+        db = get_mongodb()
+        item = db.GetRestaurantsInfo(all=True)
+        print(f"type: {type(item)}, \nlength: {len(item)}")
 
     if is_ajax:
-        return render_template("_items.html", items=items)
-    return render_template("home.html", items=items, form=form)
+        # print("home() -> "
+        #       f"\n\titems: {type(items)}"
+        #       f"\n\titems: {items}"
+        #       )
+        return render_template("_items.html", items=item)
+    # print(f"home() -> "
+    #       f"\n\titems: {type(items)},"
+    #       f"\n\titems: {items},"
+    #       f"\n\n\tform: {type(form)}"
+    #       f"\n\tform: {form}"
+    #       )
+    return render_template("home.html", items=item, form=form)
 
 
 
@@ -228,11 +253,14 @@ def favicon():
                                 'images/favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 
-@app.route("/item/<int:item_id>")
+@app.route("/item/<string:item_id>")
 def item(item_id):
+
+    item_id
+
     c = get_db().cursor()
     c.execute("""SELECT
-                   i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, s.name
+                   i.id, i.restaurant, i.description, i.allergy_score, i.image, c.name, s.name
                    FROM
                    items AS i
                    INNER JOIN cuisines AS c ON i.cuisine_id = c.id
@@ -245,7 +273,7 @@ def item(item_id):
     try:
         item = {
             "id": row[0],
-            "restaurant_name": row[1],
+            "restaurant": row[1],
             "description": row[2],
             "allergy_score": row[3],
             "image": row[4],
@@ -257,7 +285,7 @@ def item(item_id):
 
     if item:
 
-        c.execute("""SELECT menu_item_name, description, allergen, allergy_score FROM menu_items
+        c.execute("""SELECT menu_item, description, allergen, allergy_score FROM menu_items
                                     WHERE item_id = ? """, (item_id,))
         menu = c.fetchall()
 
@@ -275,6 +303,18 @@ def item(item_id):
 
         deleteItemForm = DeleteItemForm()
 
+        print("item() -> "
+              f"\n\tcommentForm: {type(commentForm)}, "
+              f"\n\tcommentForm: {commentForm}, "
+              f"\n\n\titem: {type(item)}, "
+              f"\n\titem: {item}, "
+              f"\n\n\tcomments: {type(comments)}, "
+              f"\n\tcomments: {comments}, "
+              f"\n\n\tmenu: {type(menu)}, "
+              f"\n\tmenu: {menu}, "
+              f"\n\n\tdeleteItemForm: {type(deleteItemForm)}"
+              f"\n\tdeleteItemForm: {deleteItemForm}"
+              )
         return render_template("item.html", commentForm=commentForm, item=item, comments=comments, menu=menu, deleteItemForm=deleteItemForm)
     return redirect(url_for("home"))
 
@@ -306,10 +346,10 @@ def new_item():
 
         # Process the form data
         c.execute("""INSERT INTO items
-                    (restaurant_name, description, allergy_score, image, cuisine_id, allergen_id)
+                    (restaurant, description, allergy_score, image, cuisine_id, allergen_id)
                     VALUES(?,?,?,?,?,?)""",
                     (
-                        escape(form.restaurant_name.data),
+                        escape(form.restaurant.data),
                         escape(form.description.data),
                         float(form.allergy_score.data),
                         filename,
@@ -319,7 +359,7 @@ def new_item():
         )
         conn.commit()
         # Redirect to some page
-        flash("Item {} has been successfully submitted".format(request.form.get("restaurant_name")), "success")
+        flash("Item {} has been successfully submitted".format(request.form.get("restaurant")), "success")
         return redirect(url_for("home"))
 
     return render_template("new_item.html", form=form)
@@ -341,7 +381,7 @@ def edit_item(item_id):
     try:
         item = {
             "id": row[0],
-            "restaurant_name": row[1],
+            "restaurant": row[1],
             "description": row[2],
             "allergy_score": row[3],
             "image": row[4]
@@ -358,10 +398,10 @@ def edit_item(item_id):
                 filename = save_image_upload(form.image)
 
             c.execute("""UPDATE items SET
-            restaurant_name = ?, description = ?, allergy_score = ?, image = ?
+            restaurant = ?, description = ?, allergy_score = ?, image = ?
             WHERE id = ?""",
                 (
-                    escape(form.restaurant_name.data),
+                    escape(form.restaurant.data),
                     escape(form.description.data),
                     float(form.allergy_score.data),
                     filename,
@@ -370,10 +410,10 @@ def edit_item(item_id):
             )
             conn.commit()
 
-            flash("Item {} has been successfully updated".format(form.restaurant_name.data), "success")
+            flash("Item {} has been successfully updated".format(form.restaurant.data), "success")
             return redirect(url_for("item", item_id=item_id))
 
-        form.restaurant_name.data       = item["restaurant_name"]
+        form.restaurant.data       = item["restaurant"]
         form.description.data = unescape(item["description"])
         form.allergy_score.data       = item["allergy_score"]
 
@@ -399,7 +439,7 @@ def delete_item(item_id):
     try:
         item = {
             "id": row[0],
-            "restaurant_name": row[1]
+            "restaurant": row[1]
         }
     except:
         item = {}
@@ -408,7 +448,7 @@ def delete_item(item_id):
         c.execute("DELETE FROM items WHERE id = ?", (item_id,))
         conn.commit()
 
-        flash("Item {} has been successfully deleted.".format(item["restaurant_name"]), "success")
+        flash("Item {} has been successfully deleted.".format(item["restaurant"]), "success")
     else:
         flash("This item does not exist.", "danger")
 
@@ -523,11 +563,14 @@ def get_mongodb(collection_name=None):
     :return: [description]
     :rtype: [type]
     """
-    db = getattr(g, "_database", None)
+    db = getattr(g, "_database_mongo", None)
     if db is None:
+        print("\n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n")
+        path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final.csv").resolve()
         mongodb = AllervizDB(db_name='allerviz')
-        mongodb.Load(Path("database/data/Portland-Honolulu-San_Diego-Grubhub.csv").resolve())
-        db = g._database = mongodb
+        mongodb.Load(data_path=path, override_load=True)
+        db = g._database_mongo = mongodb
+
     if collection_name is None:
         return db
     else:

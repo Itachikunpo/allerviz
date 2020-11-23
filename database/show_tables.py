@@ -12,7 +12,7 @@ c = conn.cursor()
 def show_items():
     try:
         items = c.execute("""SELECT
-                                i.id, i.restaurant_name, i.description, i.allergy_score, i.image, c.name, c.id, s.name, s.id
+                                i.id, i.restaurant, i.description, i.allergy_score, i.image, c.name, c.id, s.name, s.id
                              FROM
                                 items AS i
                              INNER JOIN cuisines     AS c ON i.cuisine_id     = c.id
@@ -37,7 +37,7 @@ def show_items():
 def show_comments():
     try:
         comments = c.execute("""SELECT
-                                    c.id, c.content, i.restaurant_name, i.id
+                                    c.id, c.content, i.restaurant, i.id
                                  FROM
                                     comments AS c
                                  INNER JOIN items AS i ON c.item_id = i.id

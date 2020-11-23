@@ -3,13 +3,13 @@
 <div class="col-lg-4 col-md-6 mb-4">
   <div class="card h-100">
     <div class="embed-responsive embed-responsive-16by9">
-      <a href="{{ url_for('item', item_id=item.id) }}">
+      <a href="{{ url_for('item', item_id=item._id) }}">
         <img class="card-img-top embed-responsive-item" src="{% if item.image %}{{ url_for('uploads', filename=item.image) }}{% else %}{{ url_for('static', filename='images/allerviz_placeholder.svg') }}{% endif %}" alt="">
       </a>
     </div>
     <div class="card-body">
       <h4 class="card-title">
-        <a href="{{ url_for('item', item_id=item.id) }}">{{ item.restaurant_name }}</a>
+        <a href="{{ url_for('item', item_id=item._id) }}">{{ item.restaurant }}</a>
       </h4>
       <h5>{{ "%.2f" | format(item.allergy_score) }}</h5>
       <p class="card-text">{{ item.description | safe }}</p>

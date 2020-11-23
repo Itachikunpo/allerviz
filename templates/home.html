@@ -7,8 +7,8 @@
       <div class="my-4">
         <form class="filter-form" action="{{ url_for('home') }}" method="GET">
           <div class="form-group">
-            {{ form.restaurant_name.label }}
-            {{ form.restaurant_name(class="form-control") }}
+            {{ form.restaurant.label }}
+            {{ form.restaurant(class="form-control") }}
           </div>
           <div class="form-group">
             {{ form.allergy_score.label }}
@@ -37,20 +37,27 @@
         <div class="col-lg-4 mb-4">
           <div class="card h-100 w-100">
             <div class="embed-responsive embed-responsive-16by9">
-              <a href="{{ url_for('item', item_id=item.id) }}">
+              <a href="{{ url_for('item', item_id=item._id|string) }}">
                 <img class="card-img-top embed-responsive-item" src="{% if item.image %}{{ url_for('uploads', filename=item.image) }}{% else %}{{ url_for('static', filename='images/allerviz_placeholder.png') }}{% endif %}" alt="">
               </a>
             </div>
             <div class="card-body">
               <h4 class="card-title">
-                <a href="{{ url_for('item', item_id=item.id) }}">{{ item.restaurant_name }}</a>
+                <a href="{{ url_for('item', item_id=item._id|string) }}">{{ item.restaurant }}</a>
               </h4>
-              <h5>{{ "%.2f" | format(item.allergy_score) }}</h5>
+              <h5>Allergy Score: <span class="badge {% if item.total_allergy_score >= 80 %}badge-success{% elif item.total_allergy_score >= 50 %}badge-warning{% else %}badge-danger{% endif %}">{{ "%.2f" | format(item.total_allergy_score) }}</span></h5>
               <p class="card-text">{{ item.description | safe }}</p>
             </div>
             <div class="card-footer">
               <small class="text-muted">
-                {{ item.cuisine }} -> {{ item.allergen }}
+                {% for cuis in item.cuisine %}
+                <div class="badge badge-info">{{ cuis }}</div>
+                {% endfor %}
+                <br>
+                {% for allergen in item.allergen %}
+                <div class="badge badge-warning">{{ allergen }}</div>
+                {% endfor %}
+                <br>
               </small>
             </div>
           </div>

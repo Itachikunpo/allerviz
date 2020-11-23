@@ -3,8 +3,56 @@ import pymongo
 import json
 import pandas as pd
 import numpy as np
+import re
+from random import sample
 from pymongo import MongoClient
 from pathlib2 import Path
+
+
+base_allergens = ["Dairy","Eggs","Fish","Shellfish","Tree nuts","Peanuts","Wheat","Soybeans"]
+# base_allergens = ["Dairy","Eggs","Fish","Shellfish","Tree nuts","Peanuts","Wheat","Soybeans","Sesame"]
+
+milk=['buttermilk', 'cottage', 'cream', 'creamer', 'creamy', 'creme', 'ghee', 'half-and-half',
+'milk', 'yogurt', 'bocconcini', 'mozzarella', 'gouda', 'swiss', 'brie', 'butter','cheese', 'custard', 'pudding',
+'whey','Au gratin','bread','cookie','Cereals','Chewing gum','cracker','cake','Donuts',
+'Margarine','Mashed potatoes','Nougat','Salad dressings','Sherbet',
+'white sauces'
+]
+
+eggs=['egg','breaded','batter-fried', 'caesar', 'cream', 'puff','crepe','waffle','custard','pudding','ice cream', 'cappuccino',
+      'candy', 'fizze','marshmallow', 'marzipan', 'mayonnaise', 'meatloaf', 'meatball','Meringue','frosting','pasta','soufflés']
+
+fish = ['fish','albacore', 'bass', 'catfish', 'cod', 'fish', 'flounder', 'grouper', 'haddock', 'halibut', 'mahi',
+		'monkfish', 'salmon', 'shark', 'snapper', 'sole', 'swordfishes', 'trouts', 'tuna', 'bluefish',
+		'bonito', 'rockfish', 'mackerel', 'naruto', 'drum', 'marlin', 'tilapia', 'carp', 'kingfish',
+		'mullet', 'whitefish', 'kipper', 'torsk', 'saltfish','Worcestershire']
+
+shellfish=[
+    'Cockle','Cuttlefish','Clam','Loco','Mussel',
+    'Octopus','Oyster','Periwinkle','Scallop',
+    'Squid','Nautilus',"crustacean","crab",
+    "lobster", "sea snail",
+]
+
+tree_nuts=[
+    'almond', 'butternut', 'candlenut', 'cashew',
+    'chestnut', 'hazelnut', 'macadamia', 'nut',
+	'pecan', 'pistachio', 'walnut','Brazil nut','Filbert'
+]
+
+peanuts=['peanut']
+
+wheat=[
+    'wheat','Bran','Bread crumb','Bulgur','Couscous',
+    'Durum','Einkorn','Farina','Farro', 'emmer','Kamut',
+    'Semolina','Sprouted wheat','Triticale'
+]
+
+soybeans=[
+    'Edamame','Miso','Natto','Soy','Tamari','Tempeh','Tofu'
+]
+
+allergen_map = [milk, eggs, fish, shellfish, tree_nuts, peanuts, wheat, soybeans]
 
 class AllervizDB(object):
     def __init__(self, db_name=None):
@@ -15,7 +63,9 @@ class AllervizDB(object):
         self.__DB = self.__client[self.__db_name]
         self.__loaded = False
 
-    def Load(self, data_path=None, example=False):
+        np.random.seed(42)
+
+    def Load(self, data_path=None, example=False, override_load=False):
         # Drop all existing databases under this name and load the data
         self.DropDatabase()
 
@@ -26,14 +76,17 @@ class AllervizDB(object):
             example_collection = self.__DB["Example"]
             self.LoadData(path=self.__example_dbfile)
         else:
-            try:
-                print(f"Restarting database with Allerviz Scraped Data.")
-                self.__InitRestaurantsCollection(data_path=Path(data_path).resolve())
-            except FileNotFoundError:
-                raise FileNotFoundError("Failed to import data from LoadData(). Check relative pathing.\n"
-                                        f"\tGiven location not found: '{data_path}'\n"
-                                        f"\tCurrent location: '{Path.cwd()}'\n\n")
-
+            if self.__loaded and not override_load:
+                print("Data is already loaded.\n"
+                      "If you still want to load in the data set override_load=True.")
+            else:
+                try:
+                    print(f"Restarting database with Allerviz Scraped Data.")
+                    self.__InitRestaurantsCollection(data_path=Path(data_path).resolve())
+                except FileNotFoundError:
+                    raise FileNotFoundError("Failed to import data from LoadData(). Check relative pathing.\n"
+                                            f"\tGiven location not found: '{data_path}'\n"
+                                            f"\tCurrent location: '{Path.cwd()}'\n\n")
         self.__loaded = True
 
     def __InitRestaurantsCollection(self, data_path=None):
@@ -42,7 +95,11 @@ class AllervizDB(object):
         Start off the InitRestaurantsCollection() as well
         """
         menu_items = self.__DB["Restaurants_Menus"]
-        menu_items_df = self.LoadData(path=data_path, rtn_df=True, clean_menu_data=True, reorg_menu_to_restaurant=True)
+        menu_items_df = self.LoadData(path=data_path,
+                                      rtn_df=True,
+                                      clean_menu_data=True,
+                                      reorg_menu_to_restaurant=True,
+                                      init_allergy_scores=True)
         self.InsertData(collection_name="Restaurants_Menus", data=menu_items_df)
         # self.__InitMenuItemsCollection(menu_items=menu_items_df)
 
@@ -60,11 +117,13 @@ class AllervizDB(object):
     def __ReorgMenuDataToRestauranteData(self, menu_data):
 
         # Drop menu items and their description to get the top level data of the restaurant
-        menu_filtered = menu_data.drop(['item', 'description'], axis = 1)
+        menu_filtered = menu_data.drop(['item', 'description', "transformed_desc"], axis = 1)
         menu_filtered = menu_filtered.drop_duplicates(subset="restaurant")
 
         # Initialize new dataframe for grouped menu items
         restaurant_menu_items = pd.DataFrame()
+        restaurant_menu_items["menu"] = np.nan
+        restaurant_menu_items["menu"] = restaurant_menu_items["menu"].astype("object")
         # Start another DF by grouping on the restaurant name
         menu_grouped = menu_data.groupby("restaurant")
         # menu_grouped = menu_data.groupby("restaurant")['street','city', "state", "zip", "latitude", "longitude"].agg(["unique"])
@@ -73,7 +132,7 @@ class AllervizDB(object):
         # Iterate over the groups
         for idx, grp in enumerate(menu_grouped.groups):
             # grab the menu items per restaurant and recordize it to prep for insertion into DB
-            menu_items = menu_grouped.get_group(grp)[["item", "description"]].to_dict("records")
+            menu_items = menu_grouped.get_group(grp)[["item", "description", "transformed_desc"]].to_dict("records")
 
             # Add to the DF the restaurant name and the list of menu items
             restaurant_menu_items.loc[idx, ["restaurant", "menu"]] = grp, menu_items
@@ -83,21 +142,77 @@ class AllervizDB(object):
 
         return reorged_menu_to_restaurants
 
-    def __CalculateMenuAllergyScores():
-        pass
+    def __InitMenuAllergyScores(self, restaurant_data=None):
+        if restaurant_data is not None:
+            restaurant_data['menu'] = restaurant_data.apply(lambda x: self.__AddMenuItemAllergenLabels(menu=x['menu']), axis=1)
+            restaurant_data = restaurant_data.apply(lambda x: self.__GenerateRestaurantAllergenLabels(restaurant_data=x), axis=1)
+            restaurant_data['menu'] = restaurant_data.apply(lambda x: self.__CalculateMenuItemAllergyScores(menu=x['menu']), axis=1)
+            return restaurant_data
+        else:
+            raise AttributeError("No restaurant_data recieved in AllervizDB().__InitMenuAllergyScores()")
 
-    def __CalculateRestaurantAllergyScores():
-        pass
+    def __AddMenuItemAllergenLabels(self, menu=None):
+
+        if isinstance(menu, dict):
+            menu["allergens"] = self.__GenerateMenuItemAllergenLabels(item=menu["item"], description=menu["description"])
+        else:
+            for item in menu:
+                item["allergens"] = self.__GenerateMenuItemAllergenLabels(item=item["item"], description=item["description"])
+        return menu
+
+    def __GenerateMenuItemAllergenLabels(self, item=None, description=None):
+        # weight chance to have no allergens
+        if np.random.choice(np.arange(0, 2), p=[0.40, 0.60]):
+            allergens = list(sample(base_allergens, k=np.random.randint(0, len(base_allergens))))
+        else:
+            allergens = list()
+        return allergens
+
+    def __GenerateRestaurantAllergenLabels(self, restaurant_data=None):
+        for food in restaurant_data["menu"]:
+            for allergens in allergen_map
+
+
+    def __lookup(self, search_str, search_list):
+            search_obj = re.search(search_list.lower(), str(search_str).lower())
+            if search_obj :
+                return 1
+            else:
+                return 0
+
+    def ConvertAllergenLabelsToArray(self, allergen_labels=None):
+        return [1 if x in allergen_labels else 0 for i,x in enumerate(base_allergens)]
+
+    def ConvertAllergenArrayToLabels(self, allergens_array=None):
+        return [base_allergens[i] for i,x in enumerate(allergens_array) if x]
+
+
+    def __CalculateMenuItemAllergyScores(self, menu=None, item=None, description=None):
+        # TODO Figure out if we are getting a menu<List of dicts> or a single item and description
+        for item in menu:
+            item["allergy_score"] = np.round(np.random.uniform(0,100), 2)
+        return menu
+
+    def __CalculateRestaurantAllergyScores(self, restaurant_data=None):
+        restaurant_data["total_allergy_score"] = restaurant_data.apply(lambda x: np.round(np.random.uniform(0,100), 2), axis = 1)
+        return restaurant_data
 
     def LoadData(self, path=None, rtn_df=False, **kwargs):
         path = Path(path).resolve()
         print(f"Loading in data from file: \n\t'{path}'")
         df = pd.read_csv(path, encoding = "utf-8")
 
-        if kwargs["clean_menu_data"] == True:
+        # print(df.info())
+        # print(df.dtypes)
+
+        if kwargs.get("clean_menu_data", False) == True:
             df = self.__CleanMenuData(menu_data=df)
-        if kwargs["reorg_menu_to_restaurant"] == True:
+        if kwargs.get("reorg_menu_to_restaurant", False)  == True:
             df = self.__ReorgMenuDataToRestauranteData(menu_data=df)
+        if kwargs.get("init_allergy_scores", False)  == True:
+            df = self.__InitMenuAllergyScores(restaurant_data=df)
+            df = self.__CalculateRestaurantAllergyScores(restaurant_data=df)
+
 
         if rtn_df:
             return df
@@ -192,9 +307,13 @@ class AllervizDB(object):
 
         return data
 
-    def GetRestaurantsInfo(self, restaurant=None, rtn_df=False):
+    def GetRestaurantsInfo(self, restaurant=None, rtn_df=False, all=False):
         data = None
-        if isinstance(restaurant, list):
+        if all:
+            data = self.QueryRestaurants(rtn_df=rtn_df)
+            if not rtn_df:
+                data = list(data)
+        elif isinstance(restaurant, list):
             data = self.QueryRestaurants(query={ "restaurant": { "$in": restaurant } }, rtn_df=rtn_df)
             if not rtn_df:
                 data = list(data)
@@ -229,12 +348,15 @@ class AllervizDB(object):
 # %%
 if __name__ == "__main__":
     import pdb
-    print(Path.cwd())
-    if str(Path.cwd()) != __file__:
-        path = "database/data/Portland-Honolulu-San_Diego-Grubhub.csv"
-    else:
-        path = "data/Portland-Honolulu-San_Diego-Grubhub.csv"
 
+    print("database")
+    path = "data/Portland-Grubhub-short.csv"
+
+    path = "data/Grubhub.csv"
     mongodb = AllervizDB(db_name='allerviz')
-    mongodb.Load(Path(path).resolve())
-    menu = mongodb.GetRestaurantsMenu("Krispy Rice")
+    # mongodb.Load(Path(path).resolve())
+    shortmenu = mongodb.LoadData(path="data/Portland-Grubhub-short.csv", rtn_df=True)
+    mediummenu = mongodb.LoadData(path="data/Portland-Honolulu-San_Diego-Grubhub.csv", rtn_df=True)
+    fullmenu = mongodb.LoadData(path="data/Grubhub.csv", rtn_df=True)
+
+# %%

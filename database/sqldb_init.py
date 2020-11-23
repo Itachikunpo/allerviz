@@ -126,7 +126,7 @@ class sqliteDB():
 
         self.dbcursor.execute("""CREATE TABLE items(
                             id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                            restaurant_name TEXT,
+                            restaurant      TEXT,
                             description     TEXT,
                             allergy_score   REAL,
                             image           TEXT,
@@ -139,8 +139,8 @@ class sqliteDB():
         self.dbcursor.execute("""CREATE TABLE menu_items(
                             id              INTEGER PRIMARY KEY AUTOINCREMENT,
                             item_id         INTEGER,
-                            restaurant_name TEXT,
-                            menu_item_name  TEXT,
+                            restaurant      TEXT,
+                            menu_item       TEXT,
                             description     TEXT,
                             allergen        TEXT,
                             allergy_score   REAL,
@@ -163,9 +163,9 @@ class sqliteDB():
         if items is not None:
             self.dbcursor.executemany("INSERT INTO allergens (name, allergen_id, cuisine_id) VALUES (?,?,?)", allergens)
         if menu_items is not None:
-            self.dbcursor.executemany("INSERT INTO menu_items (item_id, restaurant_name, menu_item_name, description, allergen, allergy_score) VALUES (?,?,?,?,?,?)", menu_items)
+            self.dbcursor.executemany("INSERT INTO menu_items (item_id, restaurant, menu_item, description, allergen, allergy_score) VALUES (?,?,?,?,?,?)", menu_items)
         if cuisines is not None:
-            self.dbcursor.executemany("INSERT INTO items (restaurant_name, description, allergy_score, image, cuisine_id, allergen_id) VALUES (?,?,?,?,?,?)", items)
+            self.dbcursor.executemany("INSERT INTO items (restaurant, description, allergy_score, image, cuisine_id, allergen_id) VALUES (?,?,?,?,?,?)", items)
         if comments is not None:
             self.dbcursor.executemany("INSERT INTO comments (content, item_id) VALUES (?,?)", comments)
         self.dbcon.commit()
