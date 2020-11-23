@@ -15,6 +15,9 @@ from werkzeug.utils import secure_filename, escape, unescape
 from markupsafe import Markup
 from database.sqldb_init import sqliteDB
 from database.allervizdb import AllervizDB
+from bson.objectid import ObjectId
+
+from pprint import pprint
 
 
 basedir = Path(__file__).absolute()
@@ -120,8 +123,8 @@ class DeleteItemForm(FlaskForm):
 class FilterForm(FlaskForm):
     restaurant      = StringField("Restaurant Name", validators=[Length(max=20)])
     allergy_score   = SelectField("Allergy Score", coerce=int, choices=[(0, "---"), (1, "Max to Min"), (2, "Min to Max")])
-    cuisine         = SelectField("Cuisine", coerce=int)
-    allergen        = SelectField("Allergen", coerce=int)
+    cuisine         = SelectField("Cuisine", coerce=str)
+    allergen        = SelectField("Allergen", coerce=str)
     submit          = SubmitField("Filter")
 
 class NewCommentForm(FlaskForm):
@@ -131,6 +134,10 @@ class NewCommentForm(FlaskForm):
 
 
 UseSqlite = False
+SQLLITEDB_EXISTS = False
+SQLDB = None
+MONGODB_EXISTS = False
+MONGODB = None
 
 @app.route("/")
 def home():
@@ -140,17 +147,18 @@ def home():
     :rtype: [type]
     """
 
-    conn = get_db()
-    c = conn.cursor()
+    mongodb = get_mongodb()
     form = FilterForm(request.args, meta={"csrf": False})
 
-    c.execute("SELECT id, name FROM cuisines")
-    cuisines = c.fetchall()
+    cuisines = mongodb.GetRestaurantCollection().distinct("cuisine")
+    cuisines.sort()
+    cuisines = [(choc, choc) for choc in cuisines]
     cuisines.insert(0, (0, "---"))
     form.cuisine.choices = cuisines
 
-    c.execute("SELECT id, name FROM allergens")
-    allergens = c.fetchall()
+    allergens = mongodb.GetRestaurantCollection().distinct("allergens")
+    allergens.sort()
+    allergens = [(aller, aller) for aller in allergens]
     allergens.insert(0, (0, "---"))
     form.allergen.choices = allergens
 
@@ -222,8 +230,7 @@ def home():
             {'id': 2, 'restaurant_name': 'Five Guys', 'description': 'Just 5 guys and some burgers', 'allergy_score': 4.0, 'image': '', 'cuisine': 'American', 'allergen': 'Fish'},
             {'id': 1, 'restaurant_name': 'Red Robin', 'description': 'American all around', 'allergy_score': 67.0, 'image': '', 'cuisine': 'American', 'allergen': 'Tree nuts'}
         ]
-        db = get_mongodb()
-        item = db.GetRestaurantsInfo(all=True)
+        item = mongodb.GetRestaurantsInfo(all=True)
         # print(f"type: {type(item)}, \nlength: {len(item)}")
 
     if is_ajax:
@@ -256,7 +263,14 @@ def favicon():
 @app.route("/item/<string:item_id>")
 def item(item_id):
 
-    item_id
+    mongodb = get_mongodb()
+    restaurant = next(mongodb.QueryRestaurants({"_id": ObjectId(item_id)}))
+    restaurant_extract = ["restaurant", "allergens", "cuisine", "total_allergy_score"]
+
+    restaurant_info = {key: restaurant[key] for key in restaurant_extract}
+    print(restaurant_info)
+    menu = restaurant["menu"]
+    print(len(menu))
 
     c = get_db().cursor()
     c.execute("""SELECT
@@ -288,7 +302,6 @@ def item(item_id):
         c.execute("""SELECT menu_item, description, allergen, allergy_score FROM menu_items
                                     WHERE item_id = ? """, (item_id,))
         menu = c.fetchall()
-
         comments_from_db = c.execute("""SELECT content FROM comments
                     WHERE item_id = ? ORDER BY id DESC""", (item_id,))
         comments = []
@@ -315,10 +328,7 @@ def item(item_id):
               f"\n\n\tdeleteItemForm: {type(deleteItemForm)}"
               f"\n\tdeleteItemForm: {deleteItemForm}"
               )
-        return render_template("item.html", commentForm=commentForm, item=item, comments=comments, menu=menu, deleteItemForm=deleteItemForm)
-    return redirect(url_for("home"))
-
-
+    return render_template("item.html", commentForm=commentForm, restaurant=restaurant_info, comments=comments, menu=menu, deleteItemForm=deleteItemForm)
 
 @app.route("/item/new", methods=["GET", "POST"])
 def new_item():
@@ -509,48 +519,13 @@ def cuisine(cuisine_id):
 
     return jsonify(allergens=allergens)
 
-
-@app.route("/uploads/<filename>")
-def uploads(filename):
-    """uploads [summary]
-
-    :param filename: [description]
-    :type filename: [type]
-    :return: [description]
-    :rtype: [type]
-    """
-    return send_from_directory(app.config["IMAGE_UPLOADS"], filename)
-
-
-def save_image_upload(image):
-    """save_image_upload [summary]
-
-    :param image: [description]
-    :type image: [type]
-    :return: [description]
-    :rtype: [type]
-    """
-    format = "%Y%m%dT%H%M%S"
-    now = datetime.datetime.utcnow().strftime(format)
-    random_string = token_hex(2)
-    filename = random_string + "_" + now + "_" + image.data.filename
-    filename = secure_filename(filename)
-    image.data.save(os.path.join(app.config["IMAGE_UPLOADS"], filename))
-    return filename
-
 def get_db():
-    """get_db [summary]
-
-    :return: [description]
-    :rtype: [type]
-    """
     DB_FILE = 'allerviz.db'
 
-    db = getattr(g, "_database", None)
+    db = SQLDB
     if db is None:
         db = g._database = sqliteDB(DB_FILE).get_dbcon()
     return db
-
 
 def get_mongodb(collection_name=None):
     """get_mongodb
@@ -563,13 +538,23 @@ def get_mongodb(collection_name=None):
     :return: [description]
     :rtype: [type]
     """
-    db = getattr(g, "_database_mongo", None)
+    # db = getattr(g, "_database", None)
+    # if db is None:
+    #     print("\n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n")
+    #     path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final-short.csv").resolve()
+    #     mongodb = AllervizDB(db_name='allerviz')
+    #     mongodb.Load(data_path=path)
+    #     db = g._database = mongodb
+
+    db = MONGODB
     if db is None:
         print("\n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n")
-        path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final.csv").resolve()
+        path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final-short.csv").resolve()
         mongodb = AllervizDB(db_name='allerviz')
-        mongodb.Load(data_path=path, override_load=True)
-        db = g._database_mongo = mongodb
+        mongodb.Load(data_path=path, checkdb_exists=True)
+        db = g._database = mongodb
+    else:
+        print("\n\n\n\tDatabase FOUND.\n\n\n")
 
     if collection_name is None:
         return db
@@ -583,7 +568,7 @@ def close_connection(exception):
     :param exception: [description]
     :type exception: [type]
     """
-    db = getattr(g, "_database", None)
+    db = get_db()
     if db is not None:
         db.close()
 

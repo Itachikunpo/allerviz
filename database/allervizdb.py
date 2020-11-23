@@ -65,12 +65,21 @@ class AllervizDB(object):
         self.__example_dbfile = Path("data/Portland-Grubhub-short.csv")
         self.__DB = self.__client[self.__db_name]
         self.__loaded = False
+        self.TEST = None
 
         np.random.seed(42)
 
-    def Load(self, data_path=None, example=False, override_load=False):
+    def Load(self, data_path=None, example=False, override_load=False, checkdb_exists=False):
         # Drop all existing databases under this name and load the data
-        self.DropDatabase()
+        if checkdb_exists:
+            if "allerviz" in self.__client.list_database_names():
+                print("\n\nDatabase found not going to drop!\n\n")
+                pass
+            else:
+                self.DropDatabase()
+
+        if override_load:
+            self.DropDatabase()
 
         # TODO Remove the example section its just for testing
         if example:
@@ -120,7 +129,7 @@ class AllervizDB(object):
     def __ReorgMenuDataToRestauranteData(self, menu_data):
 
         # Drop menu items and their description to get the top level data of the restaurant
-        menu_filtered = menu_data.drop(['item', 'description', "transformed_desc"], axis = 1)
+        menu_filtered = menu_data.drop(['item', 'description', "transformed_desc", "street", "city", "state", "zip", "latitude", "longitude"], axis = 1)
         menu_filtered = menu_filtered.drop_duplicates(subset="restaurant")
 
         # Initialize new dataframe for grouped menu items
@@ -129,8 +138,8 @@ class AllervizDB(object):
         restaurant_menu_items["menu"] = restaurant_menu_items["menu"].astype("object")
         # Start another DF by grouping on the restaurant name
         menu_grouped = menu_data.groupby("restaurant")
-        # menu_grouped = menu_data.groupby("restaurant")['street','city', "state", "zip", "latitude", "longitude"].agg(["unique"])
-        # menu_grouped = menu_data.groupby("restaurant")['street','city', "state", "zip", "latitude", "longitude"].apply(lambda x: list(np.unique(x)))
+        city_n_states = menu_grouped['city','state'].apply(lambda x: list(np.unique(x))).to_frame()
+        city_n_states = city_n_states.rename(columns={0:"state&city"}).reset_index()
 
         # Iterate over the groups
         for idx, grp in enumerate(menu_grouped.groups):
@@ -142,6 +151,7 @@ class AllervizDB(object):
 
         # Join the dataframes on the restaurant names to add the menu items to the correct restaurant
         reorged_menu_to_restaurants = menu_filtered.join(restaurant_menu_items.set_index('restaurant'), on='restaurant')
+        reorged_menu_to_restaurants = reorged_menu_to_restaurants.join(city_n_states.set_index('restaurant'), on='restaurant')
 
         return reorged_menu_to_restaurants
 
@@ -311,6 +321,12 @@ class AllervizDB(object):
         else:
             raise AttributeError(f"No Collection found with name: '{collection_name}'")
 
+    def GetRestaurantCollection(self):
+        if "Restaurants_Menus" in self.GetCollectionNames():
+            return self.__DB["Restaurants_Menus"]
+        else:
+            raise AttributeError(f"No Collection found with name: 'Restaurants_Menus'")
+
     def GetCollectionNames(self):
         return self.__DB.list_collection_names()
 
@@ -354,7 +370,6 @@ class AllervizDB(object):
 
         return data
 
-
     def GetNumberOfRestaurants(self):
         return len(self.GetNamesOfRestaurants())
 
@@ -363,6 +378,7 @@ class AllervizDB(object):
             return self.__DB[collection_name].estimated_document_count()
 
     def DropDatabase(self, db_name=None):
+        print(f"\n\nDatabase going to be dropped: {db_name}!\n\n")
         if db_name is None:
             db_del_list = np.setdiff1d(self.__client.list_database_names(), self.__base_dbs)
             for db in db_del_list:
@@ -378,13 +394,43 @@ if __name__ == "__main__":
     import pdb
 
     print("database")
-    path = "data/Portland-Grubhub-short.csv"
+    # path = "data/Portland-Grubhub-short.csv"
 
-    path = "data/Grubhub.csv"
+
+
+    path = "data/Grubhub-final.csv"
+    path = "data/Grubhub-final-short.csv"
     mongodb = AllervizDB(db_name='allerviz')
-    # mongodb.Load(Path(path).resolve())
-    shortmenu = mongodb.LoadData(path="data/Portland-Grubhub-short.csv", rtn_df=True)
-    mediummenu = mongodb.LoadData(path="data/Portland-Honolulu-San_Diego-Grubhub.csv", rtn_df=True)
-    fullmenu = mongodb.LoadData(path="data/Grubhub.csv", rtn_df=True)
+    mongodb.Load(Path(path).resolve())
+
+
+    # shortmenu = mongodb.LoadData(path="data/Portland-Grubhub-short.csv", rtn_df=True)
+    # mediummenu = mongodb.LoadData(path="data/Portland-Honolulu-San_Diego-Grubhub.csv", rtn_df=True)
+    # fullmenu = mongodb.LoadData(path="data/Grubhub.csv", rtn_df=True)
+
+# %%
+if __name__ == "__main__":
+    # id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    # item_id         INTEGER,
+    # restaurant      TEXT,
+    # menu_item       TEXT,
+    # description     TEXT,
+    # allergen        TEXT,
+    # allergy_score   REAL,
+    from bson.objectid import ObjectId
+    from pprint import pprint
+    restaurant_extract = ["restaurant", "allergens", "cuisine", "total_allergy_score", "city&State"]
+    menu_extract = ["menu"]
+    # t = next(mongodb.QueryRestaurants(query={"_id":ObjectId("5fbb2f0ed6aec6a5237271af")}))
+    t = next(mongodb.GetRestaurantCollection().find(limit=1))
+
+    restaurant_info = {key: t[key] for key in restaurant_extract}
+    pprint(restaurant_info)
+    menu = t["menu"]
+    print(len(menu))
+
+
+
+
 
 # %%

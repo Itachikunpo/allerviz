@@ -30,3 +30,7 @@ textarea {
 #content:invalid {
      box-shadow:none;
 }
+
+.card-img-top {
+    object-fit: contain;
+}
