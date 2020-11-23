@@ -13,7 +13,7 @@ from wtforms.validators import InputRequired, DataRequired, Length, ValidationEr
 from wtforms.widgets import Input, ListWidget
 from werkzeug.utils import secure_filename, escape, unescape
 from markupsafe import Markup
-from database.sqldb_init import sqliteDB
+from database.test.sqldb_init import sqliteDB
 from database.allervizdb import AllervizDB, base_allergens
 from bson.objectid import ObjectId
 

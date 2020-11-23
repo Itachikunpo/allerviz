@@ -7,7 +7,7 @@ import re
 from random import sample
 from pymongo import MongoClient
 from pathlib2 import Path
-from src.formulae4prediction import rcv, predict_single, predict_tuple, generall_prediction
+from database.src.formulae4prediction import rcv, predict_single, predict_tuple, generall_prediction
 
 
 base_allergens = ["Dairy","Egg","Fish","Shellfish","Tree nut","Peanut","Wheat","Soybean"]
@@ -251,10 +251,10 @@ class AllervizDB(object):
         if kwargs.get("init_allergy_scores", False)  == True:
             df = self.__InitMenuAllergyScores(restaurant_data=df)
             df = self.__CalculateRestaurantAllergyScores(restaurant_data=df)
-        if kwargs.get("init_allergy_scores", False) == True:
-            df = df.drop([""])
-            menu_filtered = menu_data.drop(['item', 'description', "transformed_desc", "street", "city", "state", "zip", "latitude", "longitude"], axis = 1)
-
+        if kwargs.get("clean_df_before_insert", False) == True:
+            # df = df.drop([""])
+            # menu_filtered = menu_data.drop(['item', 'description', "transformed_desc", "street", "city", "state", "zip", "latitude", "longitude"], axis = 1)
+            pass
 
         if rtn_df:
             return df

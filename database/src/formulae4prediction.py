@@ -3,7 +3,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 # from allergen_classifier_model import model
 
-model = pickle.load(open('model.pkl','rb'))
+model = pickle.load(open('database/src/model.pkl','rb'))
 
 ###This function cleans the transformed description
 def rcv(self,lem):
