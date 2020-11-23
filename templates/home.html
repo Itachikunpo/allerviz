@@ -18,9 +18,13 @@
             {{ form.cuisine.label }}
             {{ form.cuisine(class="form-control cuisine-filter") }}
           </div>
-          <div class="form-group">
+          <!-- <div class="form-group">
             {{ form.allergen.label }}
             {{ form.allergen(class="form-control") }}
+          </div> -->
+          <div class="form-group">
+            {{ form.allergen_filter.label(class="form-check-label") }}
+            {{ form.allergen_filter(class="form-check") }}
           </div>
           {{ form.submit(class="btn btn-primary form-control") }}
         </form>

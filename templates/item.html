@@ -1,25 +1,25 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ item.title }} - {% endblock %}
+{% block title %}{{ restaurant.restaurant }} - {% endblock %}
 
 {% block content %}
 <div class="row">
   <div class="col-lg-3 my-4">
-    <a href="{{ url_for('edit_item', item_id=item._id) }}" class="btn btn-primary">Edit item</a>
-    <form class="delete-form" method="POST" action="{{ url_for('delete_item', item_id=item._id) }}">
+    <!-- <a href="{{ url_for('edit_item', item_id=restaurant._id) }}" class="btn btn-primary">Edit item</a> -->
+    <!-- <form class="delete-form" method="POST" action="{{ url_for('delete_item', item_id=restaurant._id) }}">
       {{ deleteItemForm.hidden_tag() }}
       {{ deleteItemForm.submit(class="btn btn-danger", onclick="return confirm('Are you sure you want to delete this item?');") }}
-    </form>
+    </form> -->
   </div>
   <div class="col-lg-9">
     <div class="card mt-4">
       <div class="embed-responsive embed-responsive-16by9">
-        <img class="card-img-top embed-responsive-item" src="{% if item.image %}{{ url_for('uploads', filename=item.image) }}{% else %}{{ url_for('static', filename='images/allerviz_placeholder.svg') }}{% endif %}">
+        <img class="card-img-top embed-responsive-item" src="{% if restaurant.image %}{{ url_for('uploads', filename=restaurant.image) }}{% else %}{{ url_for('static', filename='images/allerviz_placeholder.svg') }}{% endif %}">
       </div>
       <div class="card-body">
         <h3 class="card-title">{{ restaurant.restaurant }}</h3>
-        <h4>{{ "%.2f" | format(restaurant.total_allergy_score) }}</h4>
-        <p class="card-text">{{ restaurant.city&State | safe }}</p>
+        <h4>Allergy Score: <span class="badge {% if restaurant.total_allergy_score >= 80 %}badge-success{% elif restaurant.total_allergy_score >= 50 %}badge-warning{% else %}badge-danger{% endif %}">{{ "%.2f" | format(restaurant.total_allergy_score) }}</span></h4>
+        <p class="card-text">{{ restaurant['city&State'] | safe }}</p>
         <h4>
             {% for cuis in restaurant.cuisine %}
             <div class="badge badge-info">{{ cuis }}</div>
@@ -71,15 +71,16 @@
         <tr>
           <td>{{ item.item }}</td>
           <td>{{ item.description }}</td>
-          <td>{% for allergen in item.allergens %}<span class="badge badge-warning">{{ allergen }}{% endfor %}</span></td>
+          <td>{% for allergen in item.allergens %}<div class="badge badge-warning">{{ allergen }}</div>{% endfor %}</td>
 
-          {% if row[3] >= 80 %}
+          <td class="badge {% if item.allergy_score >= 80 %}badge-success{% elif item.allergy_score >= 50 %}badge-warning{% else %}badge-danger{% endif %}">{{ "%.2f" | format(item.allergy_score) }}</d>
+          <!-- {% if item.allergy_score >= 80 %}
               <td style="background-color:rgb(128, 226, 128)">{{ item.allergy_score }}</td>
-          {% elif row[3] >= 50 %}
+          {% elif item.allergy_score >= 50 %}
               <td style="background-color:rgb(238, 238, 90)">{{ item.allergy_score }}</td>
           {% else %}
               <td style="background-color:rgb(236, 112, 112)">{{ item.allergy_score }}</td>
-          {% endif %}
+          {% endif %} -->
         </tr>
       {%- endfor -%}
       </tbody>

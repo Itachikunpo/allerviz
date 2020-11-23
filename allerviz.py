@@ -8,13 +8,13 @@ from secrets import token_hex
 from flask import Flask, jsonify, send_from_directory, render_template, request, redirect, url_for, g, flash, Markup as flask_Markup
 from flask_wtf import FlaskForm, RecaptchaField
 from flask_wtf.file import FileAllowed, FileRequired
-from wtforms import StringField, TextAreaField, SubmitField, SelectField, DecimalField, FileField, HiddenField
+from wtforms import StringField, TextAreaField, SubmitField, SelectField, DecimalField, FileField, HiddenField, SelectMultipleField, widgets
 from wtforms.validators import InputRequired, DataRequired, Length, ValidationError
-from wtforms.widgets import Input
+from wtforms.widgets import Input, ListWidget
 from werkzeug.utils import secure_filename, escape, unescape
 from markupsafe import Markup
 from database.sqldb_init import sqliteDB
-from database.allervizdb import AllervizDB
+from database.allervizdb import AllervizDB, base_allergens
 from bson.objectid import ObjectId
 
 from pprint import pprint
@@ -120,11 +120,17 @@ class EditItemForm(ItemForm):
 class DeleteItemForm(FlaskForm):
     submit      = SubmitField("Delete item")
 
+class MultiCheckboxField(SelectMultipleField):
+    widget = widgets.ListWidget(prefix_label=False)
+    option_widget = widgets.CheckboxInput()
+
 class FilterForm(FlaskForm):
     restaurant      = StringField("Restaurant Name", validators=[Length(max=20)])
     allergy_score   = SelectField("Allergy Score", coerce=int, choices=[(0, "---"), (1, "Max to Min"), (2, "Min to Max")])
     cuisine         = SelectField("Cuisine", coerce=str)
     allergen        = SelectField("Allergen", coerce=str)
+    allergen_list_val_desc = [(x, x+" Free") for x in base_allergens]
+    allergen_filter = MultiCheckboxField('Allergens', choices=allergen_list_val_desc)
     submit          = SubmitField("Filter")
 
 class NewCommentForm(FlaskForm):
@@ -265,9 +271,15 @@ def item(item_id):
 
     mongodb = get_mongodb()
     restaurant = next(mongodb.QueryRestaurants({"_id": ObjectId(item_id)}))
-    restaurant_extract = ["restaurant", "allergens", "cuisine", "total_allergy_score"]
+    restaurant_extract = ["_id","restaurant", "allergens", "cuisine", "total_allergy_score"]
 
-    restaurant_info = {key: restaurant[key] for key in restaurant_extract}
+    restaurant_info = dict()
+    for key in restaurant_extract:
+        if not isinstance(restaurant[key], ObjectId):
+            restaurant_info[key] = restaurant[key]
+        else:
+            restaurant_info[key] = str(restaurant[key])
+
     print(restaurant_info)
     menu = restaurant["menu"]
     print(len(menu))
@@ -297,11 +309,11 @@ def item(item_id):
     except:
         item = {}
 
-    if item:
+    if restaurant:
 
         c.execute("""SELECT menu_item, description, allergen, allergy_score FROM menu_items
                                     WHERE item_id = ? """, (item_id,))
-        menu = c.fetchall()
+        # menu = c.fetchall()
         comments_from_db = c.execute("""SELECT content FROM comments
                     WHERE item_id = ? ORDER BY id DESC""", (item_id,))
         comments = []
@@ -375,7 +387,7 @@ def new_item():
     return render_template("new_item.html", form=form)
 
 
-@app.route("/item/<int:item_id>/edit", methods=["GET", "POST"])
+@app.route("/item/<string:item_id>/edit", methods=["GET", "POST"])
 def edit_item(item_id):
     """edit_item [summary]
 
@@ -432,7 +444,7 @@ def edit_item(item_id):
 
     return redirect(url_for("home"))
 
-@app.route("/item/<int:item_id>/delete", methods=["POST"])
+@app.route("/item/<string:item_id>/delete", methods=["POST"])
 def delete_item(item_id):
     """delete_item [summary]
 
