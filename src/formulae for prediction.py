@@ -1,5 +1,8 @@
-from scipy.sparse import csr_matrix
 import pickle
+from scipy.sparse import csr_matrix
+# from allergen_classifier_model import model
+
+
 ###This function cleans the transformed description
 def rcv(self,lem):
     if type(lem)==float:
@@ -15,7 +18,7 @@ def rcv(self,lem):
         column= [int(float(b[x])) for x in range(1, len(b), 3)]
         value= [float(b[x]) for x in range(2, len(b), 3)]
         final_list=[np.array(row),np.array(column),np.array(value)]
-        
+
         return final_list
 
 ###This formula returns a single allergy score for a menu item
