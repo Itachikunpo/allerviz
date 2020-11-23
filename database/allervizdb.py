@@ -43,9 +43,12 @@ tree_nuts=[
 peanuts=['peanut']
 
 wheat=[
-    'wheat','Bran','Bread crumb','Bulgur','Couscous',
+    'wheat','Bran', "bread", 'Bread crumb','Bulgur','Couscous',
     'Durum','Einkorn','Farina','Farro', 'emmer','Kamut',
-    'Semolina','Sprouted wheat','Triticale'
+    'Semolina','Sprouted wheat','Triticale',
+    "rye", "sourdough", "tortilla", "soda bread", "flatabread",
+    "crosissant", "bun", "bagel", "donut", 'cracker','cake',
+    "cornbread", "waffle", "pancake", "muffin", "biscuit",
 ]
 
 soybeans=[
@@ -145,7 +148,7 @@ class AllervizDB(object):
     def __InitMenuAllergyScores(self, restaurant_data=None):
         if restaurant_data is not None:
             restaurant_data['menu'] = restaurant_data.apply(lambda x: self.__AddMenuItemAllergenLabels(menu=x['menu']), axis=1)
-            restaurant_data = restaurant_data.apply(lambda x: self.__GenerateRestaurantAllergenLabels(restaurant_data=x), axis=1)
+            restaurant_data['allergens'] = restaurant_data.apply(lambda x: self.__GenerateRestaurantAllergenLabels(menu_data=x['menu']), axis=1)
             restaurant_data['menu'] = restaurant_data.apply(lambda x: self.__CalculateMenuItemAllergyScores(menu=x['menu']), axis=1)
             return restaurant_data
         else:
@@ -161,6 +164,21 @@ class AllervizDB(object):
         return menu
 
     def __GenerateMenuItemAllergenLabels(self, item=None, description=None):
+        allergens_array_per_item = list()
+
+        # convert some bad data to empty out np.nans
+        if isinstance(item, float):
+            item = ""
+        if isinstance(description, float):
+            description = ""
+
+        full_search_string = item + " " + description
+        for allergens in allergen_map:
+            allergens_array_per_item.append(self.__lookup(search_str=full_search_string, search_list='|'.join(allergens)))
+
+        allergen_labels = self.ConvertAllergenArrayToLabels(allergens_array=allergens_array_per_item)
+        return allergen_labels
+
         # weight chance to have no allergens
         if np.random.choice(np.arange(0, 2), p=[0.40, 0.60]):
             allergens = list(sample(base_allergens, k=np.random.randint(0, len(base_allergens))))
@@ -168,12 +186,23 @@ class AllervizDB(object):
             allergens = list()
         return allergens
 
-    def __GenerateRestaurantAllergenLabels(self, restaurant_data=None):
-        for food in restaurant_data["menu"]:
-            for allergens in allergen_map
+    def __GenerateRestaurantAllergenLabels(self, menu_data=None):
+        restaurant_allergens_unique = set()
+        for food in menu_data:
+            allergens_array_per_item = list()
+            if isinstance(food["item"], float):
+                food["item"] = ""
+            if isinstance(food["description"], float):
+                food["description"] = ""
+            full_search_string = food["item"] + " " + food["description"]
+            for allergens in allergen_map:
+                allergens_array_per_item.append(self.__lookup(search_str=full_search_string, search_list='|'.join(allergens)))
 
+            allergen_labels = self.ConvertAllergenArrayToLabels(allergens_array=allergens_array_per_item)
+            restaurant_allergens_unique.update(allergen_labels)
+        return list(restaurant_allergens_unique)
 
-    def __lookup(self, search_str, search_list):
+    def __lookup(self, search_str=None, search_list=None):
             search_obj = re.search(search_list.lower(), str(search_str).lower())
             if search_obj :
                 return 1
@@ -212,7 +241,6 @@ class AllervizDB(object):
         if kwargs.get("init_allergy_scores", False)  == True:
             df = self.__InitMenuAllergyScores(restaurant_data=df)
             df = self.__CalculateRestaurantAllergyScores(restaurant_data=df)
-
 
         if rtn_df:
             return df

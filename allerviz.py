@@ -224,7 +224,7 @@ def home():
         ]
         db = get_mongodb()
         item = db.GetRestaurantsInfo(all=True)
-        print(f"type: {type(item)}, \nlength: {len(item)}")
+        # print(f"type: {type(item)}, \nlength: {len(item)}")
 
     if is_ajax:
         # print("home() -> "
@@ -586,3 +586,6 @@ def close_connection(exception):
     db = getattr(g, "_database", None)
     if db is not None:
         db.close()
+
+
+
