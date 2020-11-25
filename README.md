@@ -1,8 +1,5 @@
 # <img src="static/images/allerviz_logo.svg" width="70"/> AllerViz
 
-CSE6242 - Data &amp; Analytic Visualization Course - Fall 2020
-
-Team 109 - Marinaded Data
 
 ## Overview
 
@@ -13,7 +10,7 @@ What we are trying to accomplish is to create a more user-friendly, easy, conven
 
 ***These instructions are only verified for \*nix type systems!***
 
-* `conda == 4.9.2` 
+* `conda == 4.9.2`
     * Install conda from either [Anaconda](https://www.anaconda.com/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) and create the environment with the `environment.yml`
 
         ```bash
