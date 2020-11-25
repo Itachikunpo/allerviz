@@ -1,6 +1,23 @@
-_pycache_/
-*.db
-favicon_io/
-AllerViz_00*.svg
-*.pyc
+# ignores
 .DS_Store
+*.db
+*.pyc
+*.zip
+*.tar.gz
+*.xlsx
+*.csv
+Multi-Label Data/
+_pycache_/
+.ipynb_checkpoints/
+database/mongo/*
+docs/build/*
+
+openrefine_operations
+AllerViz_00*.svg
+favicon_package*
+
+# do not ignore
+!.gitignore
+!.gitkeep
+!Grubhub-Final.csv
+!Grubhub-Final-short.csv
