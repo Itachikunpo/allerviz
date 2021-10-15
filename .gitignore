@@ -19,5 +19,5 @@ favicon_package*
 # do not ignore
 !.gitignore
 !.gitkeep
-!Grubhub-Final.csv
+Grubhub-Final.csv
 !Grubhub-Final-short.csv
