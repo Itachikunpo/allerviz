@@ -1,4 +1,4 @@
-name: allerviz_update
+name: allerviz
 channels:
   - defaults
 dependencies:
