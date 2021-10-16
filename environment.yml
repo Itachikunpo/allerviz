@@ -1,4 +1,4 @@
-name: allerviz_update
+name: allerviz
 channels:
   - defaults
 dependencies:
@@ -55,4 +55,4 @@ dependencies:
     - scikit-multilearn==0.2.0
     - sklearn==0.0
     - threadpoolctl==3.0.0
-prefix: /Users/itachi/opt/anaconda3/envs/allerviz_update
+prefix: /Users/itachi/opt/anaconda3/envs/allerviz
