@@ -1,7 +1,7 @@
 """ [summary]
 """
 import sqlite3
-from pathlib2 import Path
+from pathlib import Path
 
 
 def init_entries():

@@ -6,7 +6,7 @@ import numpy as np
 import re
 from random import sample
 from pymongo import MongoClient
-from pathlib2 import Path
+from pathlib import Path
 from database.src.formulae4prediction import rcv, predict_single, predict_tuple, generall_prediction
 
 

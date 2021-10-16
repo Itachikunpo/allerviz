@@ -1,89 +1,58 @@
-name: allerviz
+name: allerviz_update
 channels:
-  - conda-forge
   - defaults
 dependencies:
-  - appnope=0.1.2
-  - backcall=0.2.0
-  - backports=1.0
-  - backports.functools_lru_cache=1.6.4
   - blas=1.0
-  - c-ares=1.17.1
-  - ca-certificates=2021.10.8
+  - bottleneck=1.3.2
+  - ca-certificates=2021.9.30
   - certifi=2021.10.8
+  - click=8.0.1
   - dataclasses=0.8
-  - debugpy=1.4.1
-  - decorator=5.1.0
-  - entrypoints=0.3
-  - flask=1.1.2
+  - dnspython=1.16.0
+  - email-validator=1.1.3
+  - flask=2.0.2
+  - flask-wtf=0.15.1
+  - idna=3.2
   - importlib-metadata=4.8.1
   - intel-openmp=2021.3.0
-  - ipykernel=6.4.1
-  - ipython=7.28.0
-  - ipython_genutils=0.2.0
   - itsdangerous=2.0.1
-  - jedi=0.18.0
-  - joblib=1.0.1
-  - jupyter_client=7.0.6
-  - jupyter_core=4.8.1
-  - krb5=1.19.2
-  - libcurl=7.78.0
+  - jinja2=3.0.1
   - libcxx=12.0.0
-  - libedit=3.1.20210714
-  - libev=4.33
   - libffi=3.3
   - libgfortran=3.0.1
-  - libnghttp2=1.41.0
-  - libsodium=1.0.18
-  - libssh2=1.9.0
-  - llvm-openmp=12.0.0
   - markupsafe=2.0.1
-  - matplotlib-inline=0.1.3
-  - mkl=2019.4
-  - mkl-service=2.3.0
+  - mkl=2021.3.0
+  - mkl-service=2.4.0
   - mkl_fft=1.3.0
-  - mkl_random=1.1.1
-  - mongodb=4.0.3
+  - mkl_random=1.2.2
   - ncurses=6.2
-  - nest-asyncio=1.5.1
-  - numpy=1.19.2
-  - numpy-base=1.19.2
+  - numexpr=2.7.3
+  - numpy=1.21.2
+  - numpy-base=1.21.2
   - openssl=1.1.1l
-  - pandas=1.1.3
-  - parso=0.8.2
-  - pathlib2=2.3.5
-  - pexpect=4.8.0
-  - pickleshare=0.7.5
+  - pandas=1.3.3
   - pip=21.2.4
-  - prompt-toolkit=3.0.20
-  - ptyprocess=0.7.0
-  - pygments=2.10.0
-  - pymongo=3.11.0
-  - python=3.8.11
+  - pymongo=3.12.0
+  - python=3.9.7
   - python-dateutil=2.8.2
-  - python_abi=3.8
   - pytz=2021.3
-  - pyzmq=22.3.0
   - readline=8.1
-  - scikit-learn=0.22.1
-  - scipy=1.5.2
+  - scipy=1.7.1
   - setuptools=58.0.4
   - six=1.16.0
   - sqlite=3.36.0
   - tk=8.6.11
-  - tornado=6.1
-  - traitlets=5.1.0
-  - wcwidth=0.2.5
+  - tzdata=2021a
+  - werkzeug=2.0.1
   - wheel=0.37.0
+  - wtforms=2.3.3
   - xz=5.2.5
-  - zeromq=4.3.4
   - zipp=3.6.0
   - zlib=1.2.11
   - pip:
-    - click==7.0
-    - flask-wtf==0.14.2
-    - jinja2==2.10.3
+    - joblib==1.1.0
+    - scikit-learn==1.0
     - scikit-multilearn==0.2.0
-    - werkzeug==0.16.0
-    - wtforms==2.2.1
-prefix: /Users/itachi/opt/anaconda3/envs/allerviz
+    - sklearn==0.0
+    - threadpoolctl==3.0.0
+prefix: /Users/itachi/opt/anaconda3/envs/allerviz_update

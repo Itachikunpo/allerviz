@@ -4,7 +4,7 @@ import sqlite3
 import os
 import datetime
 from sqlite3.dbapi2 import version
-from pathlib2 import Path
+from pathlib import Path
 from secrets import token_hex
 from flask import Flask, jsonify, send_from_directory, render_template, request, redirect, url_for, g, flash, Markup as flask_Markup
 from flask_wtf import FlaskForm, RecaptchaField
