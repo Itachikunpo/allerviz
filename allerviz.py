@@ -3,7 +3,8 @@ import pdb
 import sqlite3
 import os
 import datetime
-from pathlib2 import Path
+from sqlite3.dbapi2 import version
+from pathlib import Path
 from secrets import token_hex
 from flask import Flask, jsonify, send_from_directory, render_template, request, redirect, url_for, g, flash, Markup as flask_Markup
 from flask_wtf import FlaskForm, RecaptchaField
@@ -139,11 +140,12 @@ class NewCommentForm(FlaskForm):
     submit  = SubmitField("Submit")
 
 
-UseSqlite = False
 SQLLITEDB_EXISTS = False
 SQLDB = None
 MONGODB_EXISTS = False
 MONGODB = None
+
+VERBOSE = True
 
 @app.route("/")
 def home():
@@ -168,90 +170,91 @@ def home():
     allergens.insert(0, (0, "---"))
     form.allergen.choices = allergens
 
-    try:
-        is_ajax = int(request.args["ajax"])
-    except:
-        is_ajax = 0
 
+    example_items = [
+        {'id': 5, 'restaurant_name': "Linguine's", 'description': 'Authenic Italian', 'allergy_score': 22.0, 'image': '', 'cuisine': 'Italian', 'allergen': 'Eggs'},
+        {'id': 4, 'restaurant_name': 'Cocina 214', 'description': 'Authentic Tex Mex', 'allergy_score': 32.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Dairy'},
+        {'id': 3, 'restaurant_name': 'Super Rico', 'description': 'Columbian to the core!', 'allergy_score': 100.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Eggs'},
+        {'id': 2, 'restaurant_name': 'Five Guys', 'description': 'Just 5 guys and some burgers', 'allergy_score': 4.0, 'image': '', 'cuisine': 'American', 'allergen': 'Fish'},
+        {'id': 1, 'restaurant_name': 'Red Robin', 'description': 'American all around', 'allergy_score': 67.0, 'image': '', 'cuisine': 'American', 'allergen': 'Tree nuts'}
+    ]
 
-    if UseSqlite:
-        query = """SELECT
-                        i.id, i.restaurant, i.description, i.allergy_score, i.image, c.name, s.name
-                        FROM
-                        items AS i
-                        INNER JOIN cuisines AS c ON i.cuisine_id = c.id
-                        INNER JOIN allergens AS s ON i.allergen_id = s.id
-        """
+    items = mongodb.GetRestaurantsInfo(all=True)
 
-        if form.validate():
+    if VERBOSE:
+        print(
+            "Home mongodb -> "
+            f"\n\ttype: {type(items)}"
+            f"\n\tlength: {len(items)}"
+        )
 
-            filter_queries = []
-            parameters = []
+    if VERBOSE:
+        print(
+            "Home -> "
+            f"\n\titems: {type(items)},"
+            f"\n\tlength: {len(items)}"
+            # f"\n\titems: {items},"
+            f"\n\tform: {type(form)}"
+            f"\n\tform: {form}"
+            )
+    return render_template("home.html", items=items, form=form)
 
-            if form.restaurant.data.strip():
-                filter_queries.append("i.restaurant LIKE ?")
-                parameters.append("%" + escape(form.restaurant.data) + "%")
+@app.route("/filter")
+def filter_items():
 
-            if form.cuisine.data:
-                filter_queries.append("i.cuisine_id = ?")
-                parameters.append(form.cuisine.data)
+    mongodb = get_mongodb()
+    form = FilterForm(request.args, meta={"csrf": False})
 
-            if form.allergen.data:
-                filter_queries.append("i.allergen_id = ?")
-                parameters.append(form.allergen.data)
+    cuisines = mongodb.GetRestaurantCollection().distinct("cuisine")
+    cuisines.sort()
+    cuisines = [(choc, choc) for choc in cuisines]
+    cuisines.insert(0, (0, "---"))
+    form.cuisine.choices = cuisines
 
-            if filter_queries:
-                query += " WHERE "
-                query += " AND ".join(filter_queries)
+    allergens = mongodb.GetRestaurantCollection().distinct("allergens")
+    allergens.sort()
+    allergens = [(aller, aller) for aller in allergens]
+    allergens.insert(0, (0, "---"))
+    form.allergen.choices = allergens
 
-            if form.allergy_score.data:
-                if form.allergy_score.data == 1:
-                    query += " ORDER BY i.allergy_score DESC"
-                else:
-                    query += " ORDER BY i.allergy_score"
-            else:
-                query += " ORDER BY i.id DESC"
+    filter_options = request.args.to_dict(flat=False)
+    query = dict()
 
-            items_from_db = c.execute(query, tuple(parameters))
-        else:
-            items_from_db = c.execute(query + "ORDER BY i.id DESC")
+    if 'restaurant' in request.args and request.args["restaurant"]:
+        query["restaurant"] = {
+            "$in": filter_options["restaurant"]
+        }
 
-        items = []
-        for row in items_from_db:
-            item = {
-                "id": row[0],
-                "restaurant": row[1],
-                "description": row[2],
-                "total_allergy_score": row[3],
-                "image": row[4],
-                "cuisine": row[5],
-                "allergen": row[6]
-            }
-            items.append(item)
+    if 'allergy_score' in request.args and int(request.args["allergy_score"]):
+        query["total_allergy_score"] = {
+            "$in": filter_options["allergy_score"]
+        }
+
+    if 'cuisine' in request.args and int(request.args["cuisine"]):
+        query["cuisine"] = {
+            "$in": filter_options["cuisine"]
+        }
+
+    if 'allergen_filter' in request.args and request.args["allergen_filter"]:
+        query["allergens"] = {
+            "$nin": filter_options["allergen_filter"]
+        }
+
+    if query:
+        items = list(mongodb.QueryRestaurants(query=query))
     else:
-        example_items = [
-            {'id': 5, 'restaurant_name': "Linguine's", 'description': 'Authenic Italian', 'allergy_score': 22.0, 'image': '', 'cuisine': 'Italian', 'allergen': 'Eggs'},
-            {'id': 4, 'restaurant_name': 'Cocina 214', 'description': 'Authentic Tex Mex', 'allergy_score': 32.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Dairy'},
-            {'id': 3, 'restaurant_name': 'Super Rico', 'description': 'Columbian to the core!', 'allergy_score': 100.0, 'image': '', 'cuisine': 'Hispanic', 'allergen': 'Eggs'},
-            {'id': 2, 'restaurant_name': 'Five Guys', 'description': 'Just 5 guys and some burgers', 'allergy_score': 4.0, 'image': '', 'cuisine': 'American', 'allergen': 'Fish'},
-            {'id': 1, 'restaurant_name': 'Red Robin', 'description': 'American all around', 'allergy_score': 67.0, 'image': '', 'cuisine': 'American', 'allergen': 'Tree nuts'}
-        ]
-        item = mongodb.GetRestaurantsInfo(all=True)
-        # print(f"type: {type(item)}, \nlength: {len(item)}")
+        items = mongodb.GetRestaurantsInfo(all=True)
 
-    if is_ajax:
-        # print("home() -> "
-        #       f"\n\titems: {type(items)}"
-        #       f"\n\titems: {items}"
-        #       )
-        return render_template("_items.html", items=item)
-    # print(f"home() -> "
-    #       f"\n\titems: {type(items)},"
-    #       f"\n\titems: {items},"
-    #       f"\n\n\tform: {type(form)}"
-    #       f"\n\tform: {form}"
-    #       )
-    return render_template("home.html", items=item, form=form)
+
+    if VERBOSE:
+        print(
+            "filter -> "
+            f"\n\ttype: {type(items)}"
+            f"\n\tlength: {len(items)}"
+        )
+
+    return render_template("filter.html", items=items, form=form)
+
 
 
 
@@ -558,15 +561,23 @@ def get_mongodb(collection_name=None):
     #     mongodb.Load(data_path=path)
     #     db = g._database = mongodb
 
-    db = MONGODB
+    # dbmongo = getattr(g, "_database", None)
+    # if dbmongo is None:
+    #     print(u"\u001b[1m\u001b[31m Database not found. \u001b[0m")
+    #     dbmongo = g._database = "test"
+    # else:
+    #     print(u"\u001b[1m\u001b[32m Database Found! \u001b[0m")
+    #     print()
+
+    db  = getattr(g, "_database", None)
     if db is None:
-        print("\n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n")
+        print(u"\u001b[1m\u001b[31m \n\n\n\tDatabase not found. RECREATING NOW!!!\n\n\n\u001b[0m")
         path = Path(__file__).parent.joinpath("database", "data", "Grubhub-Final.csv").resolve()
         mongodb = AllervizDB(db_name='allerviz')
         mongodb.Load(data_path=path, checkdb_exists=True)
         db = g._database = mongodb
     else:
-        print("\n\n\n\tDatabase FOUND.\n\n\n")
+        print(u"\u001b[1m\u001b[32m Database Found! \u001b[0m")
 
     if collection_name is None:
         return db

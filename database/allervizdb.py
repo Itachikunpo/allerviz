@@ -6,7 +6,7 @@ import numpy as np
 import re
 from random import sample
 from pymongo import MongoClient
-from pathlib2 import Path
+from pathlib import Path
 from database.src.formulae4prediction import rcv, predict_single, predict_tuple, generall_prediction
 
 
@@ -74,7 +74,8 @@ class AllervizDB(object):
         if checkdb_exists:
             if "allerviz" in self.__client.list_database_names():
                 print("\n\nDatabase found not going to drop!\n\n")
-                pass
+                self.__loaded = True
+                return
             else:
                 self.DropDatabase()
 
@@ -88,6 +89,8 @@ class AllervizDB(object):
             example_collection = self.__DB["Example"]
             self.LoadData(path=self.__example_dbfile)
         else:
+            print(self.__loaded)
+            print(override_load)
             if self.__loaded and not override_load:
                 print("Data is already loaded.\n"
                       "If you still want to load in the data set override_load=True.")

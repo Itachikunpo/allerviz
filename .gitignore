@@ -6,6 +6,7 @@
 *.tar.gz
 *.xlsx
 *.csv
+*.json
 Multi-Label Data/
 _pycache_/
 .ipynb_checkpoints/
@@ -19,5 +20,5 @@ favicon_package*
 # do not ignore
 !.gitignore
 !.gitkeep
-!Grubhub-Final.csv
+Grubhub-Final.csv
 !Grubhub-Final-short.csv
